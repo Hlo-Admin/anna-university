@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Users, User, LogOut, Plus } from "lucide-react";
+import { AdminSidebar } from "@/components/AdminSidebar";
 
 interface FormSubmission {
   id: string;
@@ -33,6 +34,7 @@ interface ReviewerUser {
 const AdminDashboard = () => {
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
   const [reviewers, setReviewers] = useState<ReviewerUser[]>([]);
+  const [activeView, setActiveView] = useState("dashboard");
   const [showCreateReviewer, setShowCreateReviewer] = useState(false);
   const [newReviewer, setNewReviewer] = useState({
     username: "",
@@ -42,7 +44,6 @@ const AdminDashboard = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is authenticated and is super admin
     const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
     if (!currentUser || currentUser.role !== "super_admin") {
       navigate("/login");
@@ -117,181 +118,217 @@ const AdminDashboard = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
-            <p className="text-gray-600">Manage applications and reviewer accounts</p>
-          </div>
-          <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
+  const getFilteredSubmissions = () => {
+    switch (activeView) {
+      case "assigned":
+        return submissions.filter(s => s.status === "assigned");
+      case "selected":
+        return submissions.filter(s => s.status === "approved");
+      case "rejected":
+        return submissions.filter(s => s.status === "rejected");
+      case "all-data":
+      default:
+        return submissions;
+    }
+  };
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Submissions</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{submissions.length}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Reviewers</CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{reviewers.length}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {submissions.filter(s => s.status === "pending").length}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Reviewer Management */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>Reviewer Accounts</CardTitle>
-                <CardDescription>Manage reviewer access and credentials</CardDescription>
-              </div>
-              <Button 
-                onClick={() => setShowCreateReviewer(!showCreateReviewer)}
-                className="flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Reviewer
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {showCreateReviewer && (
-              <form onSubmit={createReviewer} className="mb-6 p-4 bg-gray-50 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="reviewer-username">Username</Label>
-                    <Input
-                      id="reviewer-username"
-                      value={newReviewer.username}
-                      onChange={(e) => setNewReviewer(prev => ({ ...prev, username: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="reviewer-password">Password</Label>
-                    <Input
-                      id="reviewer-password"
-                      type="password"
-                      value={newReviewer.password}
-                      onChange={(e) => setNewReviewer(prev => ({ ...prev, password: e.target.value }))}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <Button type="submit">Create Account</Button>
-                  <Button type="button" variant="outline" onClick={() => setShowCreateReviewer(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            )}
-
-            <div className="space-y-4">
-              {reviewers.map((reviewer) => (
-                <div key={reviewer.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{reviewer.username}</p>
-                    <p className="text-sm text-gray-500">
-                      Created: {new Date(reviewer.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Badge variant="secondary">Reviewer</Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Form Submissions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Form Submissions</CardTitle>
-            <CardDescription>Review and assign applications to reviewers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {submissions.map((submission) => (
-                <div key={submission.id} className="border rounded-lg p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-semibold text-lg">{submission.name}</h3>
-                      <p className="text-gray-600">{submission.email}</p>
-                      {submission.company && (
-                        <p className="text-sm text-gray-500">{submission.company}</p>
-                      )}
-                    </div>
-                    <Badge className={getStatusColor(submission.status)}>
-                      {submission.status.replace("_", " ").toUpperCase()}
-                    </Badge>
-                  </div>
-                  
-                  <p className="text-gray-700 mb-4">{submission.message}</p>
-                  
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-500">
-                      Submitted: {new Date(submission.submittedAt).toLocaleDateString()}
-                    </p>
-                    
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={submission.assignedTo || ""}
-                        onValueChange={(value) => assignToReviewer(submission.id, value)}
-                      >
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="Assign to reviewer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {reviewers.map((reviewer) => (
-                            <SelectItem key={reviewer.id} value={reviewer.id}>
-                              {reviewer.username}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              ))}
+  const renderContent = () => {
+    switch (activeView) {
+      case "dashboard":
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Submissions</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{submissions.length}</div>
+                </CardContent>
+              </Card>
               
-              {submissions.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No form submissions yet.
-                </div>
-              )}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Reviewers</CardTitle>
+                  <User className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{reviewers.length}</div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {submissions.filter(s => s.status === "pending").length}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        );
+
+      case "reviewers":
+        return (
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Reviewer Accounts</CardTitle>
+                  <CardDescription>Manage reviewer access and credentials</CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setShowCreateReviewer(!showCreateReviewer)}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Reviewer
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {showCreateReviewer && (
+                <form onSubmit={createReviewer} className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="reviewer-username">Username</Label>
+                      <Input
+                        id="reviewer-username"
+                        value={newReviewer.username}
+                        onChange={(e) => setNewReviewer(prev => ({ ...prev, username: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="reviewer-password">Password</Label>
+                      <Input
+                        id="reviewer-password"
+                        type="password"
+                        value={newReviewer.password}
+                        onChange={(e) => setNewReviewer(prev => ({ ...prev, password: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <Button type="submit">Create Account</Button>
+                    <Button type="button" variant="outline" onClick={() => setShowCreateReviewer(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              <div className="space-y-4">
+                {reviewers.map((reviewer) => (
+                  <div key={reviewer.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{reviewer.username}</p>
+                      <p className="text-sm text-gray-500">
+                        Created: {new Date(reviewer.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">Reviewer</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      default:
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {activeView === "all-data" ? "All Form Submissions" :
+                 activeView === "assigned" ? "Assigned Submissions" :
+                 activeView === "selected" ? "Selected Submissions" :
+                 activeView === "rejected" ? "Rejected Submissions" : "Form Submissions"}
+              </CardTitle>
+              <CardDescription>Review and assign applications to reviewers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {getFilteredSubmissions().map((submission) => (
+                  <div key={submission.id} className="border rounded-lg p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-semibold text-lg">{submission.name}</h3>
+                        <p className="text-gray-600">{submission.email}</p>
+                        {submission.company && (
+                          <p className="text-sm text-gray-500">{submission.company}</p>
+                        )}
+                      </div>
+                      <Badge className={getStatusColor(submission.status)}>
+                        {submission.status.replace("_", " ").toUpperCase()}
+                      </Badge>
+                    </div>
+                    
+                    <p className="text-gray-700 mb-4">{submission.message}</p>
+                    
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-gray-500">
+                        Submitted: {new Date(submission.submittedAt).toLocaleDateString()}
+                      </p>
+                      
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={submission.assignedTo || ""}
+                          onValueChange={(value) => assignToReviewer(submission.id, value)}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Assign to reviewer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {reviewers.map((reviewer) => (
+                              <SelectItem key={reviewer.id} value={reviewer.id}>
+                                {reviewer.username}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {getFilteredSubmissions().length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No form submissions found for this view.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex">
+      <AdminSidebar activeView={activeView} onViewChange={setActiveView} />
+      
+      <div className="flex-1 lg:ml-0">
+        <div className="container mx-auto px-4 py-8 lg:pl-8">
+          <div className="flex justify-between items-center mb-8 lg:ml-0 ml-16">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
+              <p className="text-gray-600">Manage applications and reviewer accounts</p>
+            </div>
+            <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          </div>
+
+          {renderContent()}
+        </div>
       </div>
     </div>
   );
