@@ -5,16 +5,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Upload } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Index = () => {
   const [formData, setFormData] = useState({
-    name: "",
+    submissionType: "",
+    authorName: "",
+    coAuthorName: "",
     email: "",
-    phone: "",
-    company: "",
-    message: ""
+    phoneNumber: "",
+    whatsappNumber: "",
+    paperTitle: "",
+    institution: "",
+    designation: "",
+    department: "",
+    presentationMode: "",
+    journalPublication: "",
+    message: "",
+    file: null as File | null
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -27,6 +38,21 @@ const Index = () => {
     }));
   };
 
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setFormData(prev => ({
+      ...prev,
+      file
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -36,6 +62,7 @@ const Index = () => {
       const newSubmission = {
         id: Date.now().toString(),
         ...formData,
+        fileName: formData.file?.name || null,
         submittedAt: new Date().toISOString(),
         status: "pending",
         assignedTo: null
@@ -50,11 +77,20 @@ const Index = () => {
       });
 
       setFormData({
-        name: "",
+        submissionType: "",
+        authorName: "",
+        coAuthorName: "",
         email: "",
-        phone: "",
-        company: "",
-        message: ""
+        phoneNumber: "",
+        whatsappNumber: "",
+        paperTitle: "",
+        institution: "",
+        designation: "",
+        department: "",
+        presentationMode: "",
+        journalPublication: "",
+        message: "",
+        file: null
       });
       setShowForm(false);
     } catch (error) {
@@ -122,7 +158,7 @@ const Index = () => {
           </div>
         ) : (
           // Application Form
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-4xl mx-auto">
             <div className="mb-6">
               <Button 
                 onClick={() => setShowForm(false)}
@@ -142,26 +178,68 @@ const Index = () => {
               </CardHeader>
               <CardContent className="p-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Submission Type */}
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">
+                      Submission Type *
+                    </Label>
+                    <RadioGroup
+                      value={formData.submissionType}
+                      onValueChange={(value) => handleSelectChange("submissionType", value)}
+                      className="mt-2"
+                      required
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="abstract" id="abstract" />
+                        <Label htmlFor="abstract">Abstract Submission</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="fullpaper" id="fullpaper" />
+                        <Label htmlFor="fullpaper">Full Paper Submission</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Author Details */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                        Full Name *
+                      <Label htmlFor="authorName" className="text-sm font-medium text-gray-700">
+                        Author Name *
                       </Label>
                       <Input
-                        id="name"
-                        name="name"
+                        id="authorName"
+                        name="authorName"
                         type="text"
                         required
-                        value={formData.name}
+                        value={formData.authorName}
                         onChange={handleInputChange}
-                        className="mt-1 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                        placeholder="Enter your full name"
+                        className="mt-1"
+                        placeholder="Enter author name"
                       />
                     </div>
                     
                     <div>
+                      <Label htmlFor="coAuthorName" className="text-sm font-medium text-gray-700">
+                        Co-Author Name *
+                      </Label>
+                      <Input
+                        id="coAuthorName"
+                        name="coAuthorName"
+                        type="text"
+                        required
+                        value={formData.coAuthorName}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        placeholder="Enter co-author name"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
                       <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                        Email Address *
+                        Email *
                       </Label>
                       <Input
                         id="email"
@@ -170,58 +248,198 @@ const Index = () => {
                         required
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="mt-1 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                        className="mt-1"
                         placeholder="your.email@example.com"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                        Phone Number
-                      </Label>
-                      <Input
-                        id="phone"
-                        name="phone"
-                        type="tel"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        className="mt-1 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                        placeholder="(555) 123-4567"
                       />
                     </div>
                     
                     <div>
-                      <Label htmlFor="company" className="text-sm font-medium text-gray-700">
-                        Company/Organization
+                      <Label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
+                        Phone Number (Country Code/Number)
                       </Label>
                       <Input
-                        id="company"
-                        name="company"
-                        type="text"
-                        value={formData.company}
+                        id="phoneNumber"
+                        name="phoneNumber"
+                        type="tel"
+                        value={formData.phoneNumber}
                         onChange={handleInputChange}
-                        className="mt-1 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                        placeholder="Your company name"
+                        className="mt-1"
+                        placeholder="+1 (555) 123-4567"
                       />
                     </div>
                   </div>
 
                   <div>
+                    <Label htmlFor="whatsappNumber" className="text-sm font-medium text-gray-700">
+                      WhatsApp/Viber Number (Country Code/Number)
+                    </Label>
+                    <Input
+                      id="whatsappNumber"
+                      name="whatsappNumber"
+                      type="tel"
+                      value={formData.whatsappNumber}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
+
+                  {/* Paper Details */}
+                  <div>
+                    <Label htmlFor="paperTitle" className="text-sm font-medium text-gray-700">
+                      Paper Title *
+                    </Label>
+                    <Input
+                      id="paperTitle"
+                      name="paperTitle"
+                      type="text"
+                      required
+                      value={formData.paperTitle}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="Enter your paper title"
+                    />
+                  </div>
+
+                  {/* Institution Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <Label htmlFor="institution" className="text-sm font-medium text-gray-700">
+                        College/University/Institution *
+                      </Label>
+                      <Input
+                        id="institution"
+                        name="institution"
+                        type="text"
+                        required
+                        value={formData.institution}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        placeholder="Enter institution name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="designation" className="text-sm font-medium text-gray-700">
+                        Designation *
+                      </Label>
+                      <Input
+                        id="designation"
+                        name="designation"
+                        type="text"
+                        required
+                        value={formData.designation}
+                        onChange={handleInputChange}
+                        className="mt-1"
+                        placeholder="e.g., Professor, Student, Researcher"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="department" className="text-sm font-medium text-gray-700">
+                      Department *
+                    </Label>
+                    <Input
+                      id="department"
+                      name="department"
+                      type="text"
+                      required
+                      value={formData.department}
+                      onChange={handleInputChange}
+                      className="mt-1"
+                      placeholder="Enter department name"
+                    />
+                  </div>
+
+                  {/* Presentation Mode */}
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">
+                      Mode of Presentation *
+                    </Label>
+                    <RadioGroup
+                      value={formData.presentationMode}
+                      onValueChange={(value) => handleSelectChange("presentationMode", value)}
+                      className="mt-2"
+                      required
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="oral" id="oral" />
+                        <Label htmlFor="oral">Oral Presentation</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="poster" id="poster" />
+                        <Label htmlFor="poster">Poster Presentation</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="virtual" id="virtual" />
+                        <Label htmlFor="virtual">Virtual Presentation (Online Live attending)</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="video" id="video" />
+                        <Label htmlFor="video">Video Presentation (Pre-recorded Video Presentation Option)</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Journal Publication */}
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">
+                      Journal Publication *
+                    </Label>
+                    <RadioGroup
+                      value={formData.journalPublication}
+                      onValueChange={(value) => handleSelectChange("journalPublication", value)}
+                      className="mt-2"
+                      required
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="yes" id="journal-yes" />
+                        <Label htmlFor="journal-yes">Yes</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="no" id="journal-no" />
+                        <Label htmlFor="journal-no">No</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Message */}
+                  <div>
                     <Label htmlFor="message" className="text-sm font-medium text-gray-700">
-                      Additional Information *
+                      Message
                     </Label>
                     <Textarea
                       id="message"
                       name="message"
-                      required
                       value={formData.message}
                       onChange={handleInputChange}
                       rows={4}
-                      className="mt-1 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="Tell us about yourself, your goals, and why you're interested in this program..."
+                      className="mt-1"
+                      placeholder="Additional information or comments..."
                     />
+                  </div>
+
+                  {/* File Upload */}
+                  <div>
+                    <Label htmlFor="file" className="text-sm font-medium text-gray-700">
+                      File Upload
+                    </Label>
+                    <div className="mt-1 flex items-center space-x-2">
+                      <Input
+                        id="file"
+                        type="file"
+                        onChange={handleFileChange}
+                        className="flex-1"
+                        accept=".pdf,.doc,.docx,.txt"
+                      />
+                      <Upload className="h-5 w-5 text-gray-400" />
+                    </div>
+                    {formData.file && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Selected: {formData.file.name}
+                      </p>
+                    )}
                   </div>
 
                   <Button
