@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -183,21 +182,19 @@ const Index = () => {
                     <Label className="text-sm font-medium text-gray-700">
                       Submission Type *
                     </Label>
-                    <RadioGroup
+                    <Select
                       value={formData.submissionType}
                       onValueChange={(value) => handleSelectChange("submissionType", value)}
-                      className="mt-2"
                       required
                     >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="abstract" id="abstract" />
-                        <Label htmlFor="abstract">Abstract Submission</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="fullpaper" id="fullpaper" />
-                        <Label htmlFor="fullpaper">Full Paper Submission</Label>
-                      </div>
-                    </RadioGroup>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select submission type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="abstract">Abstract Submission</SelectItem>
+                        <SelectItem value="fullpaper">Full Paper Submission</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Author Details */}
@@ -357,29 +354,21 @@ const Index = () => {
                     <Label className="text-sm font-medium text-gray-700">
                       Mode of Presentation *
                     </Label>
-                    <RadioGroup
+                    <Select
                       value={formData.presentationMode}
                       onValueChange={(value) => handleSelectChange("presentationMode", value)}
-                      className="mt-2"
                       required
                     >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="oral" id="oral" />
-                        <Label htmlFor="oral">Oral Presentation</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="poster" id="poster" />
-                        <Label htmlFor="poster">Poster Presentation</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="virtual" id="virtual" />
-                        <Label htmlFor="virtual">Virtual Presentation (Online Live attending)</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="video" id="video" />
-                        <Label htmlFor="video">Video Presentation (Pre-recorded Video Presentation Option)</Label>
-                      </div>
-                    </RadioGroup>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select presentation mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="oral">Oral Presentation</SelectItem>
+                        <SelectItem value="poster">Poster Presentation</SelectItem>
+                        <SelectItem value="virtual">Virtual Presentation (Online Live attending)</SelectItem>
+                        <SelectItem value="video">Video Presentation (Pre-recorded Video Presentation Option)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Journal Publication */}
@@ -387,21 +376,19 @@ const Index = () => {
                     <Label className="text-sm font-medium text-gray-700">
                       Journal Publication *
                     </Label>
-                    <RadioGroup
+                    <Select
                       value={formData.journalPublication}
                       onValueChange={(value) => handleSelectChange("journalPublication", value)}
-                      className="mt-2"
                       required
                     >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="yes" id="journal-yes" />
-                        <Label htmlFor="journal-yes">Yes</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="no" id="journal-no" />
-                        <Label htmlFor="journal-no">No</Label>
-                      </div>
-                    </RadioGroup>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select journal publication preference" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Message */}
