@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import PhoneInput from "@/components/PhoneInput";
 
 const Index = () => {
   const [formData, setFormData] = useState({
@@ -16,7 +17,9 @@ const Index = () => {
     coAuthorName: "",
     email: "",
     phoneNumber: "",
+    phoneCountryCode: "+91",
     whatsappNumber: "",
+    whatsappCountryCode: "+91",
     paperTitle: "",
     institution: "",
     designation: "",
@@ -44,6 +47,13 @@ const Index = () => {
     }));
   };
 
+  const handleCountryCodeChange = (field: string, countryCode: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: countryCode
+    }));
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setFormData(prev => ({
@@ -61,6 +71,8 @@ const Index = () => {
       const newSubmission = {
         id: Date.now().toString(),
         ...formData,
+        fullPhoneNumber: `${formData.phoneCountryCode} ${formData.phoneNumber}`,
+        fullWhatsappNumber: `${formData.whatsappCountryCode} ${formData.whatsappNumber}`,
         fileName: formData.file?.name || null,
         submittedAt: new Date().toISOString(),
         status: "pending",
@@ -81,7 +93,9 @@ const Index = () => {
         coAuthorName: "",
         email: "",
         phoneNumber: "",
+        phoneCountryCode: "+91",
         whatsappNumber: "",
+        whatsappCountryCode: "+91",
         paperTitle: "",
         institution: "",
         designation: "",
@@ -256,33 +270,29 @@ const Index = () => {
                     </div>
                     
                     <div>
-                      <Label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700">
-                        Phone Number (Country Code/Number)
-                      </Label>
-                      <Input
+                      <PhoneInput
+                        label="Phone Number"
                         id="phoneNumber"
                         name="phoneNumber"
-                        type="tel"
                         value={formData.phoneNumber}
                         onChange={handleInputChange}
-                        className="mt-1"
-                        placeholder="+1 (555) 123-4567"
+                        onCountryChange={(code) => handleCountryCodeChange("phoneCountryCode", code)}
+                        selectedCountry={formData.phoneCountryCode}
+                        placeholder="Enter phone number"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="whatsappNumber" className="text-sm font-medium text-gray-700">
-                      WhatsApp/Viber Number (Country Code/Number)
-                    </Label>
-                    <Input
+                    <PhoneInput
+                      label="WhatsApp/Viber Number"
                       id="whatsappNumber"
                       name="whatsappNumber"
-                      type="tel"
                       value={formData.whatsappNumber}
                       onChange={handleInputChange}
-                      className="mt-1"
-                      placeholder="+1 (555) 123-4567"
+                      onCountryChange={(code) => handleCountryCodeChange("whatsappCountryCode", code)}
+                      selectedCountry={formData.whatsappCountryCode}
+                      placeholder="Enter WhatsApp/Viber number"
                     />
                   </div>
 
