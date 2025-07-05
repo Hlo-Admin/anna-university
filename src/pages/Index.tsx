@@ -109,8 +109,13 @@ const Index = () => {
       <nav className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">MyApp</h1>
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/lovable-uploads/cc7dfcca-5750-4f88-9b73-4693e619e400.png" 
+                alt="Anna University Logo" 
+                className="h-10 w-10"
+              />
+              <h1 className="text-2xl font-bold text-gray-900">Anna University</h1>
             </div>
             <div>
               <a 
@@ -129,20 +134,20 @@ const Index = () => {
           // Instructions Section
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-5xl font-bold text-gray-900 mb-6">
-              Join Our Program
+              Submit Your Paper
             </h1>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              Submit your application to be considered for our exclusive program. 
-              Our team will review your submission and contact you with next steps.
+              Share your research to be considered for publication in our upcoming issue. 
+              Our editorial team will review your submission and get in touch with the next steps.
             </p>
             
             <div className="bg-blue-50 border-l-4 border-blue-400 p-6 mb-8 text-left rounded-r-lg">
-              <h3 className="font-semibold text-blue-900 mb-2">Application Instructions:</h3>
-              <ul className="text-blue-800 space-y-1">
-                <li>• Fill out all required fields completely</li>
-                <li>• Provide accurate contact information</li>
-                <li>• Include detailed information in the message field</li>
-                <li>• Review your submission before clicking submit</li>
+              <h3 className="font-semibold text-blue-900 mb-3">Submission Guidelines:</h3>
+              <ul className="text-blue-800 space-y-2">
+                <li>• Complete all required fields accurately</li>
+                <li>• Ensure your contact details are up to date</li>
+                <li>• Provide a detailed abstract or description in the message field</li>
+                <li>• Review your paper and submission details before clicking "Submit"</li>
               </ul>
             </div>
 
@@ -151,7 +156,7 @@ const Index = () => {
               size="lg"
               className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
-              Apply Now
+              Submit Paper
               <ChevronDown className="ml-2 h-5 w-5 animate-pulse" />
             </Button>
           </div>
