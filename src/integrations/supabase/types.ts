@@ -9,7 +9,95 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      paper_submissions: {
+        Row: {
+          assigned_to: string | null
+          company: string | null
+          document_name: string | null
+          document_url: string | null
+          email: string
+          id: string
+          message: string
+          name: string
+          phone: string
+          status: string | null
+          submitted_at: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          company?: string | null
+          document_name?: string | null
+          document_url?: string | null
+          email: string
+          id?: string
+          message: string
+          name: string
+          phone: string
+          status?: string | null
+          submitted_at?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          company?: string | null
+          document_name?: string | null
+          document_url?: string | null
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          phone?: string
+          status?: string | null
+          submitted_at?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_assigned_to"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "reviewers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviewers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          password: string
+          phone: string
+          role: string | null
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          password: string
+          phone: string
+          role?: string | null
+          username: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          password?: string
+          phone?: string
+          role?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
