@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronDown, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import PhoneInput from "@/components/PhoneInput";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [formData, setFormData] = useState({
@@ -31,6 +32,7 @@ const Index = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const { toast } = useToast();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -67,26 +69,53 @@ const Index = () => {
     setIsSubmitting(true);
 
     try {
-      const existingSubmissions = JSON.parse(localStorage.getItem("formSubmissions") || "[]");
-      const newSubmission = {
-        id: Date.now().toString(),
-        ...formData,
-        fullPhoneNumber: `${formData.phoneCountryCode} ${formData.phoneNumber}`,
-        fullWhatsappNumber: `${formData.whatsappCountryCode} ${formData.whatsappNumber}`,
-        fileName: formData.file?.name || null,
-        submittedAt: new Date().toISOString(),
-        status: "pending",
-        assignedTo: null
-      };
-      
-      existingSubmissions.push(newSubmission);
-      localStorage.setItem("formSubmissions", JSON.stringify(existingSubmissions));
+      let documentUrl = null;
+      let documentName = null;
 
-      toast({
-        title: "Application Submitted!",
-        description: "We'll review your application and get back to you soon.",
-      });
+      // Upload file to Supabase storage if file exists
+      if (formData.file) {
+        const fileExt = formData.file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(fileName, formData.file);
 
+        if (uploadError) {
+          throw new Error(`File upload failed: ${uploadError.message}`);
+        }
+
+        // Get public URL for the uploaded file
+        const { data: urlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(fileName);
+
+        documentUrl = urlData.publicUrl;
+        documentName = formData.file.name;
+      }
+
+      // Insert data into paper_submissions table
+      const { error: insertError } = await supabase
+        .from('paper_submissions')
+        .insert({
+          name: `${formData.authorName} (Co-author: ${formData.coAuthorName})`,
+          email: formData.email,
+          phone: `${formData.phoneCountryCode} ${formData.phoneNumber}`,
+          whatsapp: formData.whatsappNumber ? `${formData.whatsappCountryCode} ${formData.whatsappNumber}` : null,
+          company: `${formData.institution} - ${formData.department} (${formData.designation})`,
+          message: `Submission Type: ${formData.submissionType}\nPaper Title: ${formData.paperTitle}\nPresentation Mode: ${formData.presentationMode}\nJournal Publication: ${formData.journalPublication}\n\nMessage: ${formData.message}`,
+          document_url: documentUrl,
+          document_name: documentName
+        });
+
+      if (insertError) {
+        throw new Error(`Database insert failed: ${insertError.message}`);
+      }
+
+      // Show success dialog
+      setShowSuccessDialog(true);
+
+      // Reset form
       setFormData({
         submissionType: "",
         authorName: "",
@@ -106,10 +135,12 @@ const Index = () => {
         file: null
       });
       setShowForm(false);
-    } catch (error) {
+
+    } catch (error: any) {
+      console.error('Submission error:', error);
       toast({
         title: "Submission Failed",
-        description: "Please try again later.",
+        description: error.message || "Please try again later.",
         variant: "destructive"
       });
     } finally {
@@ -457,6 +488,30 @@ const Index = () => {
           </div>
         )}
       </div>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-green-600">
+              🎉 Application Submitted Successfully!
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              Thank you for your submission! We have received your paper application 
+              and will review it carefully. Our team will get back to you soon with 
+              the next steps.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center mt-4">
+            <Button 
+              onClick={() => setShowSuccessDialog(false)}
+              className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
