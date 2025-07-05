@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,16 +95,25 @@ const Index = () => {
         documentName = formData.file.name;
       }
 
-      // Insert data into paper_submissions table
+      // Insert data into paper_submissions table with separate fields
       const { error: insertError } = await supabase
         .from('paper_submissions')
         .insert({
-          name: `${formData.authorName} (Co-author: ${formData.coAuthorName})`,
+          submission_type: formData.submissionType,
+          author_name: formData.authorName,
+          co_author_name: formData.coAuthorName,
           email: formData.email,
-          phone: `${formData.phoneCountryCode} ${formData.phoneNumber}`,
-          whatsapp: formData.whatsappNumber ? `${formData.whatsappCountryCode} ${formData.whatsappNumber}` : null,
-          company: `${formData.institution} - ${formData.department} (${formData.designation})`,
-          message: `Submission Type: ${formData.submissionType}\nPaper Title: ${formData.paperTitle}\nPresentation Mode: ${formData.presentationMode}\nJournal Publication: ${formData.journalPublication}\n\nMessage: ${formData.message}`,
+          phone_country_code: formData.phoneCountryCode,
+          phone_number: formData.phoneNumber,
+          whatsapp_country_code: formData.whatsappNumber ? formData.whatsappCountryCode : null,
+          whatsapp_number: formData.whatsappNumber || null,
+          paper_title: formData.paperTitle,
+          institution: formData.institution,
+          designation: formData.designation,
+          department: formData.department,
+          presentation_mode: formData.presentationMode,
+          journal_publication: formData.journalPublication,
+          message: formData.message || null,
           document_url: documentUrl,
           document_name: documentName
         });
@@ -310,6 +320,7 @@ const Index = () => {
                         onCountryChange={(code) => handleCountryCodeChange("phoneCountryCode", code)}
                         selectedCountry={formData.phoneCountryCode}
                         placeholder="Enter phone number"
+                        required
                       />
                     </div>
                   </div>

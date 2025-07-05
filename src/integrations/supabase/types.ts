@@ -12,52 +12,79 @@ export type Database = {
       paper_submissions: {
         Row: {
           assigned_to: string | null
-          company: string | null
+          author_name: string
+          co_author_name: string
+          department: string
+          designation: string
           document_name: string | null
           document_url: string | null
           email: string
           id: string
-          message: string
-          name: string
-          phone: string
+          institution: string
+          journal_publication: string
+          message: string | null
+          paper_title: string
+          phone_country_code: string
+          phone_number: string
+          presentation_mode: string
           status: string | null
+          submission_type: string
           submitted_at: string
           updated_at: string
-          whatsapp: string | null
+          whatsapp_country_code: string | null
+          whatsapp_number: string | null
         }
         Insert: {
           assigned_to?: string | null
-          company?: string | null
+          author_name: string
+          co_author_name: string
+          department: string
+          designation: string
           document_name?: string | null
           document_url?: string | null
           email: string
           id?: string
-          message: string
-          name: string
-          phone: string
+          institution: string
+          journal_publication: string
+          message?: string | null
+          paper_title: string
+          phone_country_code: string
+          phone_number: string
+          presentation_mode: string
           status?: string | null
+          submission_type: string
           submitted_at?: string
           updated_at?: string
-          whatsapp?: string | null
+          whatsapp_country_code?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
           assigned_to?: string | null
-          company?: string | null
+          author_name?: string
+          co_author_name?: string
+          department?: string
+          designation?: string
           document_name?: string | null
           document_url?: string | null
           email?: string
           id?: string
-          message?: string
-          name?: string
-          phone?: string
+          institution?: string
+          journal_publication?: string
+          message?: string | null
+          paper_title?: string
+          phone_country_code?: string
+          phone_number?: string
+          presentation_mode?: string
           status?: string | null
+          submission_type?: string
           submitted_at?: string
           updated_at?: string
-          whatsapp?: string | null
+          whatsapp_country_code?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "fk_assigned_to"
+            foreignKeyName: "paper_submissions_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "reviewers"
