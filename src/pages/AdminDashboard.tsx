@@ -3,32 +3,39 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, User, LogOut, Plus } from "lucide-react";
+import { Users, User, LogOut, Plus, FileText, Download, Eye } from "lucide-react";
 import { AdminSidebar } from "@/components/AdminSidebar";
+import { DocumentViewer } from "@/components/DocumentViewer";
+import { CreateReviewerDialog } from "@/components/CreateReviewerDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FormSubmission {
   id: string;
   name: string;
   email: string;
   phone: string;
-  company: string;
+  whatsapp?: string;
+  company?: string;
   message: string;
-  submittedAt: string;
+  document_url?: string;
+  document_name?: string;
   status: string;
-  assignedTo: string | null;
+  assigned_to: string | null;
+  submitted_at: string;
 }
 
 interface ReviewerUser {
   id: string;
+  name: string;
+  email: string;
+  phone: string;
   username: string;
   password: string;
   role: string;
-  createdAt: string;
+  created_at: string;
 }
 
 const AdminDashboard = () => {
@@ -36,9 +43,14 @@ const AdminDashboard = () => {
   const [reviewers, setReviewers] = useState<ReviewerUser[]>([]);
   const [activeView, setActiveView] = useState("dashboard");
   const [showCreateReviewer, setShowCreateReviewer] = useState(false);
-  const [newReviewer, setNewReviewer] = useState({
-    username: "",
-    password: ""
+  const [documentViewer, setDocumentViewer] = useState<{
+    isOpen: boolean;
+    documentUrl: string;
+    documentName: string;
+  }>({
+    isOpen: false,
+    documentUrl: "",
+    documentName: ""
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -53,12 +65,33 @@ const AdminDashboard = () => {
     loadData();
   }, [navigate]);
 
-  const loadData = () => {
-    const formSubmissions = JSON.parse(localStorage.getItem("formSubmissions") || "[]");
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    
-    setSubmissions(formSubmissions);
-    setReviewers(users.filter((u: ReviewerUser) => u.role === "reviewer"));
+  const loadData = async () => {
+    try {
+      // Load submissions
+      const { data: submissionsData, error: submissionsError } = await supabase
+        .from('paper_submissions')
+        .select('*')
+        .order('submitted_at', { ascending: false });
+
+      if (submissionsError) throw submissionsError;
+
+      // Load reviewers
+      const { data: reviewersData, error: reviewersError } = await supabase
+        .from('reviewers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (reviewersError) throw reviewersError;
+
+      setSubmissions(submissionsData || []);
+      setReviewers(reviewersData || []);
+    } catch (error: any) {
+      toast({
+        title: "Error loading data",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   const handleLogout = () => {
@@ -66,44 +99,64 @@ const AdminDashboard = () => {
     navigate("/login");
   };
 
-  const createReviewer = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const users = JSON.parse(localStorage.getItem("users") || "[]");
-    const newUser: ReviewerUser = {
-      id: `reviewer-${Date.now()}`,
-      username: newReviewer.username,
-      password: newReviewer.password,
-      role: "reviewer",
-      createdAt: new Date().toISOString()
-    };
+  const assignToReviewer = async (submissionId: string, reviewerId: string) => {
+    try {
+      const { error } = await supabase
+        .from('paper_submissions')
+        .update({ 
+          assigned_to: reviewerId, 
+          status: 'assigned',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', submissionId);
 
-    users.push(newUser);
-    localStorage.setItem("users", JSON.stringify(users));
-    
-    setNewReviewer({ username: "", password: "" });
-    setShowCreateReviewer(false);
-    loadData();
-    
-    toast({
-      title: "Reviewer Created",
-      description: `Account created for ${newReviewer.username}`,
-    });
+      if (error) throw error;
+
+      loadData(); // Refresh data
+      toast({
+        title: "Assignment Updated",
+        description: "Form has been assigned to reviewer",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
-  const assignToReviewer = (submissionId: string, reviewerId: string) => {
-    const updatedSubmissions = submissions.map(sub => 
-      sub.id === submissionId 
-        ? { ...sub, assignedTo: reviewerId, status: "assigned" }
-        : sub
-    );
-    
-    setSubmissions(updatedSubmissions);
-    localStorage.setItem("formSubmissions", JSON.stringify(updatedSubmissions));
-    
-    toast({
-      title: "Assignment Updated",
-      description: "Form has been assigned to reviewer",
+  const updateSubmissionStatus = async (submissionId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('paper_submissions')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', submissionId);
+
+      if (error) throw error;
+
+      loadData(); // Refresh data
+      toast({
+        title: "Status Updated",
+        description: `Submission status changed to ${newStatus}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const openDocumentViewer = (documentUrl: string, documentName: string) => {
+    setDocumentViewer({
+      isOpen: true,
+      documentUrl,
+      documentName
     });
   };
 
@@ -111,9 +164,8 @@ const AdminDashboard = () => {
     switch (status) {
       case "pending": return "bg-yellow-100 text-yellow-800";
       case "assigned": return "bg-blue-100 text-blue-800";
-      case "approved": return "bg-green-100 text-green-800";
+      case "selected": return "bg-green-100 text-green-800";
       case "rejected": return "bg-red-100 text-red-800";
-      case "needs_changes": return "bg-orange-100 text-orange-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
@@ -123,7 +175,7 @@ const AdminDashboard = () => {
       case "assigned":
         return submissions.filter(s => s.status === "assigned");
       case "selected":
-        return submissions.filter(s => s.status === "approved");
+        return submissions.filter(s => s.status === "selected");
       case "rejected":
         return submissions.filter(s => s.status === "rejected");
       case "all-data":
@@ -137,7 +189,7 @@ const AdminDashboard = () => {
       case "dashboard":
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Submissions</CardTitle>
@@ -169,6 +221,18 @@ const AdminDashboard = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Selected</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {submissions.filter(s => s.status === "selected").length}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         );
@@ -183,7 +247,7 @@ const AdminDashboard = () => {
                   <CardDescription>Manage reviewer access and credentials</CardDescription>
                 </div>
                 <Button 
-                  onClick={() => setShowCreateReviewer(!showCreateReviewer)}
+                  onClick={() => setShowCreateReviewer(true)}
                   className="flex items-center gap-2"
                 >
                   <Plus className="h-4 w-4" />
@@ -192,50 +256,25 @@ const AdminDashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {showCreateReviewer && (
-                <form onSubmit={createReviewer} className="mb-6 p-4 bg-gray-50 rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="reviewer-username">Username</Label>
-                      <Input
-                        id="reviewer-username"
-                        value={newReviewer.username}
-                        onChange={(e) => setNewReviewer(prev => ({ ...prev, username: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="reviewer-password">Password</Label>
-                      <Input
-                        id="reviewer-password"
-                        type="password"
-                        value={newReviewer.password}
-                        onChange={(e) => setNewReviewer(prev => ({ ...prev, password: e.target.value }))}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button type="submit">Create Account</Button>
-                    <Button type="button" variant="outline" onClick={() => setShowCreateReviewer(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              )}
-
               <div className="space-y-4">
                 {reviewers.map((reviewer) => (
                   <div key={reviewer.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                      <p className="font-medium">{reviewer.username}</p>
-                      <p className="text-sm text-gray-500">
-                        Created: {new Date(reviewer.createdAt).toLocaleDateString()}
+                      <p className="font-medium">{reviewer.name}</p>
+                      <p className="text-sm text-gray-500">{reviewer.email}</p>
+                      <p className="text-sm text-gray-500">{reviewer.phone}</p>
+                      <p className="text-xs text-gray-400">
+                        Username: {reviewer.username} | Created: {new Date(reviewer.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <Badge variant="secondary">Reviewer</Badge>
                   </div>
                 ))}
+                {reviewers.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No reviewers found. Create your first reviewer account.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -246,12 +285,12 @@ const AdminDashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle>
-                {activeView === "all-data" ? "All Form Submissions" :
+                {activeView === "all-data" ? "All Paper Submissions" :
                  activeView === "assigned" ? "Assigned Submissions" :
                  activeView === "selected" ? "Selected Submissions" :
-                 activeView === "rejected" ? "Rejected Submissions" : "Form Submissions"}
+                 activeView === "rejected" ? "Rejected Submissions" : "Paper Submissions"}
               </CardTitle>
-              <CardDescription>Review and assign applications to reviewers</CardDescription>
+              <CardDescription>Review and manage paper submissions</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -261,25 +300,72 @@ const AdminDashboard = () => {
                       <div>
                         <h3 className="font-semibold text-lg">{submission.name}</h3>
                         <p className="text-gray-600">{submission.email}</p>
+                        <p className="text-sm text-gray-500">{submission.phone}</p>
+                        {submission.whatsapp && (
+                          <p className="text-sm text-gray-500">WhatsApp: {submission.whatsapp}</p>
+                        )}
                         {submission.company && (
-                          <p className="text-sm text-gray-500">{submission.company}</p>
+                          <p className="text-sm text-gray-500">Company: {submission.company}</p>
                         )}
                       </div>
                       <Badge className={getStatusColor(submission.status)}>
-                        {submission.status.replace("_", " ").toUpperCase()}
+                        {submission.status.toUpperCase()}
                       </Badge>
                     </div>
                     
                     <p className="text-gray-700 mb-4">{submission.message}</p>
                     
+                    {submission.document_url && submission.document_name && (
+                      <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded">
+                        <FileText className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm text-gray-700 flex-1">{submission.document_name}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = submission.document_url!;
+                            link.download = submission.document_name!;
+                            link.click();
+                          }}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Download
+                        </Button>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between items-center">
                       <p className="text-sm text-gray-500">
-                        Submitted: {new Date(submission.submittedAt).toLocaleDateString()}
+                        Submitted: {new Date(submission.submitted_at).toLocaleDateString()}
                       </p>
                       
                       <div className="flex items-center gap-2">
                         <Select
-                          value={submission.assignedTo || ""}
+                          value={submission.status}
+                          onValueChange={(value) => updateSubmissionStatus(submission.id, value)}
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="assigned">Assigned</SelectItem>
+                            <SelectItem value="selected">Selected</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <Select
+                          value={submission.assigned_to || ""}
                           onValueChange={(value) => assignToReviewer(submission.id, value)}
                         >
                           <SelectTrigger className="w-48">
@@ -288,7 +374,7 @@ const AdminDashboard = () => {
                           <SelectContent>
                             {reviewers.map((reviewer) => (
                               <SelectItem key={reviewer.id} value={reviewer.id}>
-                                {reviewer.username}
+                                {reviewer.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -300,7 +386,7 @@ const AdminDashboard = () => {
                 
                 {getFilteredSubmissions().length === 0 && (
                   <div className="text-center py-8 text-gray-500">
-                    No form submissions found for this view.
+                    No submissions found for this view.
                   </div>
                 )}
               </div>
@@ -319,7 +405,7 @@ const AdminDashboard = () => {
           <div className="flex justify-between items-center mb-8 lg:ml-0 ml-16">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
-              <p className="text-gray-600">Manage applications and reviewer accounts</p>
+              <p className="text-gray-600">Manage paper submissions and reviewer accounts</p>
             </div>
             <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
               <LogOut className="h-4 w-4" />
@@ -330,6 +416,19 @@ const AdminDashboard = () => {
           {renderContent()}
         </div>
       </div>
+
+      <CreateReviewerDialog
+        isOpen={showCreateReviewer}
+        onClose={() => setShowCreateReviewer(false)}
+        onReviewerCreated={loadData}
+      />
+
+      <DocumentViewer
+        isOpen={documentViewer.isOpen}
+        onClose={() => setDocumentViewer({ ...documentViewer, isOpen: false })}
+        documentUrl={documentViewer.documentUrl}
+        documentName={documentViewer.documentName}
+      />
     </div>
   );
 };
