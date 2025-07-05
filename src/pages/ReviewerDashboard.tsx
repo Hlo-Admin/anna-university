@@ -12,12 +12,21 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface FormSubmission {
   id: string;
-  name: string;
+  submission_type: string;
+  author_name: string;
+  co_author_name: string;
   email: string;
-  phone: string;
-  whatsapp?: string;
-  company?: string;
-  message: string;
+  phone_country_code: string;
+  phone_number: string;
+  whatsapp_country_code?: string;
+  whatsapp_number?: string;
+  paper_title: string;
+  institution: string;
+  designation: string;
+  department: string;
+  presentation_mode: string;
+  journal_publication: string;
+  message?: string;
   document_url?: string;
   document_name?: string;
   status: string;
@@ -161,25 +170,45 @@ const ReviewerDashboard = () => {
                 <div key={submission.id} className="border rounded-lg p-6 bg-white shadow-sm">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-semibold text-lg">{submission.name}</h3>
+                      <h3 className="font-semibold text-lg">{submission.author_name}</h3>
                       <p className="text-gray-600">{submission.email}</p>
-                      <p className="text-sm text-gray-500">{submission.phone}</p>
-                      {submission.whatsapp && (
-                        <p className="text-sm text-gray-500">WhatsApp: {submission.whatsapp}</p>
+                      <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
+                      {submission.whatsapp_country_code && submission.whatsapp_number && (
+                        <p className="text-sm text-gray-500">WhatsApp: {submission.whatsapp_country_code} {submission.whatsapp_number}</p>
                       )}
-                      {submission.company && (
-                        <p className="text-sm text-gray-500">Company: {submission.company}</p>
-                      )}
+                      <p className="text-sm text-gray-500">Co-Author: {submission.co_author_name}</p>
+                      <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
+                      <p className="text-sm text-gray-500">Department: {submission.department}</p>
+                      <p className="text-sm text-gray-500">Designation: {submission.designation}</p>
                     </div>
-                    <Badge className={getStatusColor(submission.status)}>
-                      {submission.status.toUpperCase()}
-                    </Badge>
+                    <div className="text-right">
+                      <Badge className={getStatusColor(submission.status)}>
+                        {submission.status.toUpperCase()}
+                      </Badge>
+                      <p className="text-xs text-gray-400 mt-2">{submission.submission_type}</p>
+                    </div>
                   </div>
                   
                   <div className="mb-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Submission Details:</h4>
-                    <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.message}</p>
+                    <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
                   </div>
+
+                  <div className="mb-4 grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Presentation Mode:</span> {submission.presentation_mode}
+                    </div>
+                    <div>
+                      <span className="font-medium">Journal Publication:</span> {submission.journal_publication}
+                    </div>
+                  </div>
+
+                  {submission.message && (
+                    <div className="mb-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Message:</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.message}</p>
+                    </div>
+                  )}
 
                   {submission.document_url && submission.document_name && (
                     <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded">
