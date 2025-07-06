@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, User, LogOut, Plus, FileText, Download, Eye } from "lucide-react";
+import { Users, User, LogOut, Plus, FileText, Download, Eye, Edit, UserOff } from "lucide-react";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { CreateReviewerDialog } from "@/components/CreateReviewerDialog";
 import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
+import { StatusUpdateDialog } from "@/components/StatusUpdateDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface FormSubmission {
@@ -44,6 +45,7 @@ interface ReviewerUser {
   username: string;
   password: string;
   role: string;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -67,6 +69,19 @@ const AdminDashboard = () => {
   }>({
     isOpen: false,
     submission: null
+  });
+  const [statusUpdate, setStatusUpdate] = useState<{
+    isOpen: boolean;
+    submissionId: string;
+    currentStatus: string;
+    newStatus: string;
+    paperTitle: string;
+  }>({
+    isOpen: false,
+    submissionId: "",
+    currentStatus: "",
+    newStatus: "",
+    paperTitle: ""
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -142,22 +157,59 @@ const AdminDashboard = () => {
     }
   };
 
-  const updateSubmissionStatus = async (submissionId: string, newStatus: string) => {
+  const handleStatusUpdateRequest = (submissionId: string, newStatus: string) => {
+    const submission = submissions.find(s => s.id === submissionId);
+    if (submission) {
+      setStatusUpdate({
+        isOpen: true,
+        submissionId,
+        currentStatus: submission.status,
+        newStatus,
+        paperTitle: submission.paper_title
+      });
+    }
+  };
+
+  const confirmStatusUpdate = async () => {
     try {
       const { error } = await supabase
         .from('paper_submissions')
         .update({ 
-          status: newStatus,
+          status: statusUpdate.newStatus,
           updated_at: new Date().toISOString()
         })
-        .eq('id', submissionId);
+        .eq('id', statusUpdate.submissionId);
 
       if (error) throw error;
 
       loadData(); // Refresh data
       toast({
         title: "Status Updated",
-        description: `Submission status changed to ${newStatus}`,
+        description: `Submission status changed to ${statusUpdate.newStatus}`,
+      });
+      setStatusUpdate({ ...statusUpdate, isOpen: false });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const toggleReviewerStatus = async (reviewerId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('reviewers')
+        .update({ is_active: !currentStatus })
+        .eq('id', reviewerId);
+
+      if (error) throw error;
+
+      loadData(); // Refresh data
+      toast({
+        title: "Reviewer Status Updated",
+        description: `Reviewer has been ${!currentStatus ? 'activated' : 'deactivated'}`,
       });
     } catch (error: any) {
       toast({
@@ -229,7 +281,7 @@ const AdminDashboard = () => {
                   <User className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{reviewers.length}</div>
+                  <div className="text-2xl font-bold">{reviewers.filter(r => r.is_active !== false).length}</div>
                 </CardContent>
               </Card>
               
@@ -298,7 +350,27 @@ const AdminDashboard = () => {
                         {submissions.filter(s => s.assigned_to === reviewer.id).length} submissions assigned
                       </p>
                     </div>
-                    <Badge variant="secondary">Reviewer</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={reviewer.is_active !== false ? "default" : "secondary"}>
+                        {reviewer.is_active !== false ? "Active" : "Inactive"}
+                      </Badge>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {/* TODO: Add edit functionality */}}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleReviewerStatus(reviewer.id, reviewer.is_active !== false)}
+                        >
+                          <UserOff className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 ))}
                 {reviewers.length === 0 && (
@@ -372,7 +444,7 @@ const AdminDashboard = () => {
                       <div className="flex items-center gap-2">
                         <Select
                           value={submission.status}
-                          onValueChange={(value) => updateSubmissionStatus(submission.id, value)}
+                          onValueChange={(value) => handleStatusUpdateRequest(submission.id, value)}
                         >
                           <SelectTrigger className="w-32">
                             <SelectValue />
@@ -393,7 +465,7 @@ const AdminDashboard = () => {
                             <SelectValue placeholder="Assign to reviewer" />
                           </SelectTrigger>
                           <SelectContent>
-                            {reviewers.map((reviewer) => (
+                            {reviewers.filter(r => r.is_active !== false).map((reviewer) => (
                               <SelectItem key={reviewer.id} value={reviewer.id}>
                                 {reviewer.name}
                               </SelectItem>
@@ -456,6 +528,15 @@ const AdminDashboard = () => {
         onClose={() => setSubmissionDetails({ ...submissionDetails, isOpen: false })}
         submission={submissionDetails.submission}
         onViewDocument={openDocumentViewer}
+      />
+
+      <StatusUpdateDialog
+        isOpen={statusUpdate.isOpen}
+        onClose={() => setStatusUpdate({ ...statusUpdate, isOpen: false })}
+        onConfirm={confirmStatusUpdate}
+        currentStatus={statusUpdate.currentStatus}
+        newStatus={statusUpdate.newStatus}
+        paperTitle={statusUpdate.paperTitle}
       />
     </div>
   );
