@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { LogOut, FileText, Download, Eye } from "lucide-react";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { supabase } from "@/integrations/supabase/client";
+import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
 
 interface FormSubmission {
   id: string;
@@ -45,6 +45,13 @@ const ReviewerDashboard = () => {
     isOpen: false,
     documentUrl: "",
     documentName: ""
+  });
+  const [submissionDetails, setSubmissionDetails] = useState<{
+    isOpen: boolean;
+    submission: FormSubmission | null;
+  }>({
+    isOpen: false,
+    submission: null
   });
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -118,6 +125,13 @@ const ReviewerDashboard = () => {
     });
   };
 
+  const openSubmissionDetails = (submission: FormSubmission) => {
+    setSubmissionDetails({
+      isOpen: true,
+      submission
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending": return "bg-yellow-100 text-yellow-800";
@@ -173,13 +187,7 @@ const ReviewerDashboard = () => {
                       <h3 className="font-semibold text-lg">{submission.author_name}</h3>
                       <p className="text-gray-600">{submission.email}</p>
                       <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
-                      {submission.whatsapp_country_code && submission.whatsapp_number && (
-                        <p className="text-sm text-gray-500">WhatsApp: {submission.whatsapp_country_code} {submission.whatsapp_number}</p>
-                      )}
-                      <p className="text-sm text-gray-500">Co-Author: {submission.co_author_name}</p>
                       <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
-                      <p className="text-sm text-gray-500">Department: {submission.department}</p>
-                      <p className="text-sm text-gray-500">Designation: {submission.designation}</p>
                     </div>
                     <div className="text-right">
                       <Badge className={getStatusColor(submission.status)}>
@@ -193,55 +201,28 @@ const ReviewerDashboard = () => {
                     <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
                     <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
                   </div>
-
-                  <div className="mb-4 grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium">Presentation Mode:</span> {submission.presentation_mode}
-                    </div>
-                    <div>
-                      <span className="font-medium">Journal Publication:</span> {submission.journal_publication}
-                    </div>
-                  </div>
-
-                  {submission.message && (
-                    <div className="mb-4">
-                      <h4 className="font-medium text-gray-900 mb-2">Message:</h4>
-                      <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.message}</p>
-                    </div>
-                  )}
-
-                  {submission.document_url && submission.document_name && (
-                    <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded">
-                      <FileText className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-700 flex-1">{submission.document_name}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const link = document.createElement('a');
-                          link.href = submission.document_url!;
-                          link.download = submission.document_name!;
-                          link.click();
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Download
-                      </Button>
-                    </div>
-                  )}
                   
                   <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-500">
-                      Submitted: {new Date(submission.submitted_at).toLocaleDateString()}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openSubmissionDetails(submission)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View Details
+                      </Button>
+                      {submission.document_url && submission.document_name && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          View Document
+                        </Button>
+                      )}
+                    </div>
                     
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Update Status:</span>
@@ -280,6 +261,13 @@ const ReviewerDashboard = () => {
         onClose={() => setDocumentViewer({ ...documentViewer, isOpen: false })}
         documentUrl={documentViewer.documentUrl}
         documentName={documentViewer.documentName}
+      />
+
+      <SubmissionDetailsDialog
+        isOpen={submissionDetails.isOpen}
+        onClose={() => setSubmissionDetails({ ...submissionDetails, isOpen: false })}
+        submission={submissionDetails.submission}
+        onViewDocument={openDocumentViewer}
       />
     </div>
   );

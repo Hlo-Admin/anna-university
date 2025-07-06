@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const [credentials, setCredentials] = useState({
@@ -39,26 +40,55 @@ const Login = () => {
     initializeDefaultAdmin();
     
     try {
+      // Check local storage first for admin
       const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const user = users.find((u: any) => 
+      const localUser = users.find((u: any) => 
         u.username === credentials.username && u.password === credentials.password
       );
 
-      if (user) {
-        // Store session
-        localStorage.setItem("currentUser", JSON.stringify(user));
+      if (localUser) {
+        // Local admin user
+        localStorage.setItem("currentUser", JSON.stringify(localUser));
         
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${user.role === 'super_admin' ? 'Super Admin' : 'Reviewer'}!`,
+          description: `Welcome back, ${localUser.role === 'super_admin' ? 'Super Admin' : 'User'}!`,
         });
 
-        // Redirect based on role
-        if (user.role === "super_admin") {
-          navigate("/admin");
-        } else {
-          navigate("/reviewer");
-        }
+        navigate(localUser.role === "super_admin" ? "/admin" : "/reviewer");
+        return;
+      }
+
+      // Check Supabase for reviewer accounts
+      const { data: reviewers, error } = await supabase
+        .from('reviewers')
+        .select('*')
+        .eq('username', credentials.username)
+        .eq('password', credentials.password);
+
+      if (error) {
+        console.error('Supabase query error:', error);
+        throw new Error('Database query failed');
+      }
+
+      if (reviewers && reviewers.length > 0) {
+        const reviewer = reviewers[0];
+        // Store reviewer session
+        localStorage.setItem("currentUser", JSON.stringify({
+          id: reviewer.id,
+          username: reviewer.username,
+          name: reviewer.name,
+          email: reviewer.email,
+          role: "reviewer",
+          createdAt: reviewer.created_at
+        }));
+        
+        toast({
+          title: "Login Successful",
+          description: `Welcome back, ${reviewer.name}!`,
+        });
+
+        navigate("/reviewer");
       } else {
         toast({
           title: "Login Failed",
@@ -66,10 +96,11 @@ const Login = () => {
           variant: "destructive"
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Login error:', error);
       toast({
         title: "Login Error",
-        description: "An error occurred during login",
+        description: error.message || "An error occurred during login",
         variant: "destructive"
       });
     } finally {
@@ -89,9 +120,9 @@ const Login = () => {
       <Card className="w-full max-w-md shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
         <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg text-center">
           <LogIn className="h-12 w-12 mx-auto mb-2" />
-          <CardTitle className="text-2xl">Admin Login</CardTitle>
+          <CardTitle className="text-2xl">Login Portal</CardTitle>
           <CardDescription className="text-blue-100">
-            Enter your credentials to access the admin portal
+            Enter your credentials to access the portal
           </CardDescription>
         </CardHeader>
         <CardContent className="p-8">
@@ -138,7 +169,7 @@ const Login = () => {
           </form>
 
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600 mb-2">Default login credentials:</p>
+            <p className="text-sm text-gray-600 mb-2">Default admin credentials:</p>
             <p className="text-sm font-mono">Username: admin</p>
             <p className="text-sm font-mono">Password: admin123</p>
           </div>
