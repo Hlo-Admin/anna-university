@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, FileText, Download, Eye } from "lucide-react";
 import { DocumentViewer } from "@/components/DocumentViewer";
+import { ReviewerSidebar } from "@/components/ReviewerSidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
 
@@ -37,6 +39,7 @@ interface FormSubmission {
 const ReviewerDashboard = () => {
   const [assignedSubmissions, setAssignedSubmissions] = useState<FormSubmission[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [activeView, setActiveView] = useState("dashboard");
   const [documentViewer, setDocumentViewer] = useState<{
     isOpen: boolean;
     documentUrl: string;
@@ -142,118 +145,137 @@ const ReviewerDashboard = () => {
     }
   };
 
+  const renderContent = () => {
+    switch (activeView) {
+      case "dashboard":
+        return (
+          <Card className="mb-8">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Assigned Submissions</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{assignedSubmissions.length}</div>
+              <p className="text-xs text-muted-foreground">
+                Paper submissions assigned to you for review
+              </p>
+            </CardContent>
+          </Card>
+        );
+
+      case "submissions":
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Assigned Submissions</CardTitle>
+              <CardDescription>Review and update the status of assigned paper submissions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {assignedSubmissions.map((submission) => (
+                  <div key={submission.id} className="border rounded-lg p-6 bg-white shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                        <p className="text-gray-600">{submission.email}</p>
+                        <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
+                        <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
+                      </div>
+                      <div className="text-right">
+                        <Badge className={getStatusColor(submission.status)}>
+                          {submission.status.toUpperCase()}
+                        </Badge>
+                        <p className="text-xs text-gray-400 mt-2">{submission.submission_type}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openSubmissionDetails(submission)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View Details
+                        </Button>
+                        {submission.document_url && submission.document_name && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            View Document
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Update Status:</span>
+                        <Select
+                          value={submission.status}
+                          onValueChange={(value) => updateSubmissionStatus(submission.id, value)}
+                        >
+                          <SelectTrigger className="w-48">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="assigned">Assigned</SelectItem>
+                            <SelectItem value="selected">Selected</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {assignedSubmissions.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>No submissions assigned to you yet.</p>
+                    <p className="text-sm">Check back later or contact your administrator.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   if (!currentUser) {
     return <div>Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Reviewer Dashboard</h1>
-            <p className="text-gray-600">Welcome back, {currentUser.username}</p>
-          </div>
-          <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-
-        <Card className="mb-8">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Assigned Submissions</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{assignedSubmissions.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Paper submissions assigned to you for review
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Assigned Submissions</CardTitle>
-            <CardDescription>Review and update the status of assigned paper submissions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {assignedSubmissions.map((submission) => (
-                <div key={submission.id} className="border rounded-lg p-6 bg-white shadow-sm">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-semibold text-lg">{submission.author_name}</h3>
-                      <p className="text-gray-600">{submission.email}</p>
-                      <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
-                      <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
-                    </div>
-                    <div className="text-right">
-                      <Badge className={getStatusColor(submission.status)}>
-                        {submission.status.toUpperCase()}
-                      </Badge>
-                      <p className="text-xs text-gray-400 mt-2">{submission.submission_type}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
-                    <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openSubmissionDetails(submission)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View Details
-                      </Button>
-                      {submission.document_url && submission.document_name && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          View Document
-                        </Button>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Update Status:</span>
-                      <Select
-                        value={submission.status}
-                        onValueChange={(value) => updateSubmissionStatus(submission.id, value)}
-                      >
-                        <SelectTrigger className="w-48">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="assigned">Assigned</SelectItem>
-                          <SelectItem value="selected">Selected</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {assignedSubmissions.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No submissions assigned to you yet.</p>
-                  <p className="text-sm">Check back later or contact your administrator.</p>
-                </div>
-              )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex">
+      <ReviewerSidebar activeView={activeView} onViewChange={setActiveView} />
+      
+      <div className="flex-1 lg:ml-0">
+        <div className="container mx-auto px-4 py-8 lg:pl-8">
+          <div className="flex justify-between items-center mb-8 lg:ml-0 ml-16">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Reviewer Dashboard</h1>
+              <p className="text-gray-600">Welcome back, {currentUser.username}</p>
             </div>
-          </CardContent>
-        </Card>
+            <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          </div>
+
+          {renderContent()}
+        </div>
       </div>
 
       <DocumentViewer

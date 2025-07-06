@@ -18,12 +18,20 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentName
 }) => {
   const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = documentUrl;
-    link.download = documentName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const extension = getFileExtension(documentName);
+    
+    if (extension === 'pdf') {
+      // Open PDF in new tab instead of downloading
+      window.open(documentUrl, '_blank');
+    } else {
+      // For non-PDF files, download normally
+      const link = document.createElement('a');
+      link.href = documentUrl;
+      link.download = documentName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const getFileExtension = (filename: string) => {
@@ -37,7 +45,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <iframe
           src={documentUrl}
-          className="w-full h-96 border rounded"
+          className="w-full h-[600px] border rounded"
           title={documentName}
         />
       );
@@ -46,12 +54,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         <img
           src={documentUrl}
           alt={documentName}
-          className="max-w-full max-h-96 object-contain mx-auto"
+          className="max-w-full max-h-[600px] object-contain mx-auto"
         />
       );
     } else {
       return (
-        <div className="flex flex-col items-center justify-center h-96 text-gray-500">
+        <div className="flex flex-col items-center justify-center h-[600px] text-gray-500">
           <FileText className="h-16 w-16 mb-4" />
           <p>Preview not available for this file type</p>
           <p className="text-sm">{documentName}</p>
@@ -62,7 +70,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex justify-between items-center">
             <div>
@@ -72,7 +80,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             <div className="flex gap-2">
               <Button onClick={handleDownload} variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
-                Download
+                {getFileExtension(documentName) === 'pdf' ? 'Open in New Tab' : 'Download'}
               </Button>
               <Button onClick={onClose} variant="outline" size="sm">
                 <X className="h-4 w-4" />

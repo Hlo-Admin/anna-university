@@ -1,15 +1,13 @@
-
-import { useState } from "react";
+import React, { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, Upload } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import PhoneInput from "@/components/PhoneInput";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Upload, FileText, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
@@ -18,85 +16,98 @@ const Index = () => {
     authorName: "",
     coAuthorName: "",
     email: "",
+    phoneCountryCode: "+1",
     phoneNumber: "",
-    phoneCountryCode: "+91",
+    whatsappCountryCode: "+1",
     whatsappNumber: "",
-    whatsappCountryCode: "+91",
     paperTitle: "",
     institution: "",
     designation: "",
     department: "",
     presentationMode: "",
     journalPublication: "",
-    message: "",
-    file: null as File | null
+    message: ""
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({
-      ...prev,
+  const countryCodes = [
+    { code: "+1", label: "United States (+1)" },
+    { code: "+44", label: "United Kingdom (+44)" },
+    { code: "+91", label: "India (+91)" },
+    { code: "+61", label: "Australia (+61)" },
+    { code: "+49", label: "Germany (+49)" },
+    { code: "+33", label: "France (+33)" },
+    { code: "+81", label: "Japan (+81)" },
+    { code: "+86", label: "China (+86)" },
+    { code: "+55", label: "Brazil (+55)" },
+    { code: "+7", label: "Russia (+7)" }
+  ];
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
       [e.target.name]: e.target.value
-    }));
+    });
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
+    setFormData({
+      ...formData,
       [name]: value
-    }));
+    });
   };
 
-  const handleCountryCodeChange = (field: string, countryCode: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: countryCode
-    }));
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files && event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+    }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setFormData(prev => ({
-      ...prev,
-      file
-    }));
+  const removeFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) {
+      toast({
+        title: "Error",
+        description: "Please correct the errors below.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
-
     try {
-      let documentUrl = null;
-      let documentName = null;
-
-      // Upload file to Supabase storage if file exists
-      if (formData.file) {
-        const fileExt = formData.file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('documents')
-          .upload(fileName, formData.file);
-
-        if (uploadError) {
-          throw new Error(`File upload failed: ${uploadError.message}`);
-        }
-
-        // Get public URL for the uploaded file
-        const { data: urlData } = supabase.storage
-          .from('documents')
-          .getPublicUrl(fileName);
-
-        documentUrl = urlData.publicUrl;
-        documentName = formData.file.name;
+      if (!selectedFile) {
+        throw new Error("No file selected");
       }
 
-      // Insert data into paper_submissions table with separate fields
-      const { error: insertError } = await supabase
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${formData.authorName.replace(/\s/g, '_')}_${Date.now()}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const documentUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/documents/${filePath}`;
+
+      const { error: submissionError } = await supabase
         .from('paper_submissions')
         .insert({
           submission_type: formData.submissionType,
@@ -105,52 +116,36 @@ const Index = () => {
           email: formData.email,
           phone_country_code: formData.phoneCountryCode,
           phone_number: formData.phoneNumber,
-          whatsapp_country_code: formData.whatsappNumber ? formData.whatsappCountryCode : null,
-          whatsapp_number: formData.whatsappNumber || null,
+          whatsapp_country_code: formData.whatsappCountryCode,
+          whatsapp_number: formData.whatsappNumber,
           paper_title: formData.paperTitle,
           institution: formData.institution,
           designation: formData.designation,
           department: formData.department,
           presentation_mode: formData.presentationMode,
           journal_publication: formData.journalPublication,
-          message: formData.message || null,
+          message: formData.message,
           document_url: documentUrl,
-          document_name: documentName
+          document_name: selectedFile.name,
+          status: 'pending',
+          submitted_at: new Date().toISOString()
         });
 
-      if (insertError) {
-        throw new Error(`Database insert failed: ${insertError.message}`);
+      if (submissionError) {
+        throw submissionError;
       }
 
-      // Show success dialog
-      setShowSuccessDialog(true);
-
-      // Reset form
-      setFormData({
-        submissionType: "",
-        authorName: "",
-        coAuthorName: "",
-        email: "",
-        phoneNumber: "",
-        phoneCountryCode: "+91",
-        whatsappNumber: "",
-        whatsappCountryCode: "+91",
-        paperTitle: "",
-        institution: "",
-        designation: "",
-        department: "",
-        presentationMode: "",
-        journalPublication: "",
-        message: "",
-        file: null
-      });
-      setShowForm(false);
-
-    } catch (error: any) {
-      console.error('Submission error:', error);
       toast({
-        title: "Submission Failed",
-        description: error.message || "Please try again later.",
+        title: "Success",
+        description: "Form submitted successfully!",
+      });
+
+      navigate("/success");
+    } catch (error: any) {
+      console.error("Form submission error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "An error occurred during submission.",
         variant: "destructive"
       });
     } finally {
@@ -158,371 +153,366 @@ const Index = () => {
     }
   };
 
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {};
+
+    if (!formData.submissionType) newErrors.submissionType = "Submission type is required";
+    if (!formData.authorName.trim()) newErrors.authorName = "Author name is required";
+    if (!formData.coAuthorName.trim()) newErrors.coAuthorName = "Co-author name is required";
+    if (!formData.email.trim()) newErrors.email = "Email is required";
+    if (!formData.phoneCountryCode) newErrors.phoneCountryCode = "Country code is required";
+    if (!formData.phoneNumber.trim()) newErrors.phoneNumber = "Phone number is required";
+    if (!formData.paperTitle.trim()) newErrors.paperTitle = "Paper title is required";
+    if (!formData.institution.trim()) newErrors.institution = "Institution is required";
+    if (!formData.designation.trim()) newErrors.designation = "Designation is required";
+    if (!formData.department.trim()) newErrors.department = "Department is required";
+    if (!formData.presentationMode) newErrors.presentationMode = "Presentation mode is required";
+    if (!formData.journalPublication) newErrors.journalPublication = "Journal publication preference is required";
+    if (!selectedFile) newErrors.document = "Document upload is required";
+
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      {/* Navbar */}
-      <nav className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-              <img 
-                src="/lovable-uploads/cc7dfcca-5750-4f88-9b73-4693e619e400.png" 
-                alt="Anna University Logo" 
-                className="h-10 w-10"
-              />
-              <h1 className="text-2xl font-bold text-gray-900">Anna University</h1>
-            </div>
-            <div>
-              <a 
-                href="/login" 
-                className="text-sm text-gray-600 hover:text-blue-600 transition-colors"
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-3xl shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg text-center">
+          <CardTitle className="text-3xl font-bold">Paper Submission Form</CardTitle>
+          <CardDescription className="text-blue-100">
+            Please fill out the form below to submit your paper
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Submission Type */}
+            <div className="space-y-2">
+              <Label htmlFor="submissionType" className="text-sm font-medium text-gray-700">
+                Submission Type <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={formData.submissionType}
+                onValueChange={(value) => handleSelectChange("submissionType", value)}
               >
-                Admin Access
-              </a>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="container mx-auto px-4 py-16">
-        {!showForm ? (
-          // Instructions Section
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-5xl font-bold text-gray-900 mb-6">
-              Submit Your Paper
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              Share your research to be considered for publication in our upcoming issue. 
-              Our editorial team will review your submission and get in touch with the next steps.
-            </p>
-            
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-6 mb-8 text-left rounded-r-lg">
-              <h3 className="font-semibold text-blue-900 mb-3">Submission Guidelines:</h3>
-              <ul className="text-blue-800 space-y-2">
-                <li>• Complete all required fields accurately</li>
-                <li>• Ensure your contact details are up to date</li>
-                <li>• Provide a detailed abstract or description in the message field</li>
-                <li>• Review your paper and submission details before clicking "Submit"</li>
-              </ul>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select submission type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="journal">Journal</SelectItem>
+                  <SelectItem value="conference">Conference</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.submissionType && <p className="text-red-500 text-sm">{errors.submissionType}</p>}
             </div>
 
-            <Button 
-              onClick={() => setShowForm(true)}
-              size="lg"
-              className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-            >
-              Submit Paper
-              <ChevronDown className="ml-2 h-5 w-5 animate-pulse" />
-            </Button>
-          </div>
-        ) : (
-          // Application Form
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <Button 
-                onClick={() => setShowForm(false)}
-                variant="outline"
-                className="mb-4"
-              >
-                ← Back to Instructions
-              </Button>
+            {/* Author Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="authorName" className="text-sm font-medium text-gray-700">
+                  Author Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="authorName"
+                  name="authorName"
+                  type="text"
+                  value={formData.authorName}
+                  onChange={handleChange}
+                  className="mt-1"
+                  placeholder="Enter author name"
+                />
+                {errors.authorName && <p className="text-red-500 text-sm">{errors.authorName}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="coAuthorName" className="text-sm font-medium text-gray-700">
+                  Co-Author Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="coAuthorName"
+                  name="coAuthorName"
+                  type="text"
+                  value={formData.coAuthorName}
+                  onChange={handleChange}
+                  className="mt-1"
+                  placeholder="Enter co-author name"
+                />
+                {errors.coAuthorName && <p className="text-red-500 text-sm">{errors.coAuthorName}</p>}
+              </div>
             </div>
-            
-            <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg">
-                <CardTitle className="text-2xl">Application Form</CardTitle>
-                <CardDescription className="text-blue-100">
-                  Please provide your information below
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-8">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Submission Type */}
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">
-                      Submission Type *
-                    </Label>
-                    <Select
-                      value={formData.submissionType}
-                      onValueChange={(value) => handleSelectChange("submissionType", value)}
-                      required
-                    >
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select submission type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="abstract">Abstract Submission</SelectItem>
-                        <SelectItem value="fullpaper">Full Paper Submission</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  {/* Author Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="authorName" className="text-sm font-medium text-gray-700">
-                        Author Name *
-                      </Label>
-                      <Input
-                        id="authorName"
-                        name="authorName"
-                        type="text"
-                        required
-                        value={formData.authorName}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                        placeholder="Enter author name"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="coAuthorName" className="text-sm font-medium text-gray-700">
-                        Co-Author Name *
-                      </Label>
-                      <Input
-                        id="coAuthorName"
-                        name="coAuthorName"
-                        type="text"
-                        required
-                        value={formData.coAuthorName}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                        placeholder="Enter co-author name"
-                      />
-                    </div>
-                  </div>
+            {/* Contact Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  Email <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="mt-1"
+                  placeholder="Enter email"
+                />
+                {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+              </div>
 
-                  {/* Contact Information */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                        Email *
-                      </Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                        placeholder="your.email@example.com"
-                      />
-                    </div>
-                    
-                    <div>
-                      <PhoneInput
-                        label="Phone Number"
-                        id="phoneNumber"
-                        name="phoneNumber"
-                        value={formData.phoneNumber}
-                        onChange={handleInputChange}
-                        onCountryChange={(code) => handleCountryCodeChange("phoneCountryCode", code)}
-                        selectedCountry={formData.phoneCountryCode}
-                        placeholder="Enter phone number"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <PhoneInput
-                      label="WhatsApp/Viber Number"
-                      id="whatsappNumber"
-                      name="whatsappNumber"
-                      value={formData.whatsappNumber}
-                      onChange={handleInputChange}
-                      onCountryChange={(code) => handleCountryCodeChange("whatsappCountryCode", code)}
-                      selectedCountry={formData.whatsappCountryCode}
-                      placeholder="Enter WhatsApp/Viber number"
-                    />
-                  </div>
-
-                  {/* Paper Details */}
-                  <div>
-                    <Label htmlFor="paperTitle" className="text-sm font-medium text-gray-700">
-                      Paper Title *
-                    </Label>
-                    <Input
-                      id="paperTitle"
-                      name="paperTitle"
-                      type="text"
-                      required
-                      value={formData.paperTitle}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                      placeholder="Enter your paper title"
-                    />
-                  </div>
-
-                  {/* Institution Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label htmlFor="institution" className="text-sm font-medium text-gray-700">
-                        College/University/Institution *
-                      </Label>
-                      <Input
-                        id="institution"
-                        name="institution"
-                        type="text"
-                        required
-                        value={formData.institution}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                        placeholder="Enter institution name"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="designation" className="text-sm font-medium text-gray-700">
-                        Designation *
-                      </Label>
-                      <Input
-                        id="designation"
-                        name="designation"
-                        type="text"
-                        required
-                        value={formData.designation}
-                        onChange={handleInputChange}
-                        className="mt-1"
-                        placeholder="e.g., Professor, Student, Researcher"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="department" className="text-sm font-medium text-gray-700">
-                      Department *
-                    </Label>
-                    <Input
-                      id="department"
-                      name="department"
-                      type="text"
-                      required
-                      value={formData.department}
-                      onChange={handleInputChange}
-                      className="mt-1"
-                      placeholder="Enter department name"
-                    />
-                  </div>
-
-                  {/* Presentation Mode */}
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">
-                      Mode of Presentation *
-                    </Label>
-                    <Select
-                      value={formData.presentationMode}
-                      onValueChange={(value) => handleSelectChange("presentationMode", value)}
-                      required
-                    >
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select presentation mode" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="oral">Oral Presentation</SelectItem>
-                        <SelectItem value="poster">Poster Presentation</SelectItem>
-                        <SelectItem value="virtual">Virtual Presentation (Online Live attending)</SelectItem>
-                        <SelectItem value="video">Video Presentation (Pre-recorded Video Presentation Option)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Journal Publication */}
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">
-                      Journal Publication *
-                    </Label>
-                    <Select
-                      value={formData.journalPublication}
-                      onValueChange={(value) => handleSelectChange("journalPublication", value)}
-                      required
-                    >
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select journal publication preference" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="no">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Message */}
-                  <div>
-                    <Label htmlFor="message" className="text-sm font-medium text-gray-700">
-                      Message
-                    </Label>
-                    <Textarea
-                      id="message"
-                      name="message"
-                      value={formData.message}
-                      onChange={handleInputChange}
-                      rows={4}
-                      className="mt-1"
-                      placeholder="Additional information or comments..."
-                    />
-                  </div>
-
-                  {/* File Upload */}
-                  <div>
-                    <Label htmlFor="file" className="text-sm font-medium text-gray-700">
-                      File Upload
-                    </Label>
-                    <div className="mt-1 flex items-center space-x-2">
-                      <Input
-                        id="file"
-                        type="file"
-                        onChange={handleFileChange}
-                        className="flex-1"
-                        accept=".pdf,.doc,.docx,.txt"
-                      />
-                      <Upload className="h-5 w-5 text-gray-400" />
-                    </div>
-                    {formData.file && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        Selected: {formData.file.name}
-                      </p>
-                    )}
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">
+                  Phone Number <span className="text-red-500">*</span>
+                </Label>
+                <div className="flex">
+                  <Select
+                    value={formData.phoneCountryCode}
+                    onValueChange={(value) => handleSelectChange("phoneCountryCode", value)}
                   >
-                    {isSubmitting ? "Submitting..." : "Submit Application"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countryCodes.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="tel"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    placeholder="Phone number"
+                    className="mt-1 ml-2"
+                  />
+                </div>
+                {errors.phoneCountryCode && <p className="text-red-500 text-sm">{errors.phoneCountryCode}</p>}
+                {errors.phoneNumber && <p className="text-red-500 text-sm">{errors.phoneNumber}</p>}
+              </div>
+            </div>
 
-      {/* Success Dialog */}
-      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center text-green-600">
-              🎉 Application Submitted Successfully!
-            </DialogTitle>
-            <DialogDescription className="text-center">
-              Thank you for your submission! We have received your paper application 
-              and will review it carefully. Our team will get back to you soon with 
-              the next steps.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-center mt-4">
-            <Button 
-              onClick={() => setShowSuccessDialog(false)}
-              className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+            {/* WhatsApp Number (Optional) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">WhatsApp Number (Optional)</Label>
+                <div className="flex">
+                  <Select
+                    value={formData.whatsappCountryCode}
+                    onValueChange={(value) => handleSelectChange("whatsappCountryCode", value)}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue placeholder="Code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countryCodes.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="tel"
+                    name="whatsappNumber"
+                    value={formData.whatsappNumber}
+                    onChange={handleChange}
+                    placeholder="WhatsApp number"
+                    className="mt-1 ml-2"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Paper Information */}
+            <div className="space-y-2">
+              <Label htmlFor="paperTitle" className="text-sm font-medium text-gray-700">
+                Paper Title <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="paperTitle"
+                name="paperTitle"
+                type="text"
+                value={formData.paperTitle}
+                onChange={handleChange}
+                className="mt-1"
+                placeholder="Enter paper title"
+              />
+              {errors.paperTitle && <p className="text-red-500 text-sm">{errors.paperTitle}</p>}
+            </div>
+
+            {/* Institution Information */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="institution" className="text-sm font-medium text-gray-700">
+                  Institution <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="institution"
+                  name="institution"
+                  type="text"
+                  value={formData.institution}
+                  onChange={handleChange}
+                  className="mt-1"
+                  placeholder="Enter institution"
+                />
+                {errors.institution && <p className="text-red-500 text-sm">{errors.institution}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="designation" className="text-sm font-medium text-gray-700">
+                  Designation <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="designation"
+                  name="designation"
+                  type="text"
+                  value={formData.designation}
+                  onChange={handleChange}
+                  className="mt-1"
+                  placeholder="Enter designation"
+                />
+                {errors.designation && <p className="text-red-500 text-sm">{errors.designation}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="department" className="text-sm font-medium text-gray-700">
+                  Department <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="department"
+                  name="department"
+                  type="text"
+                  value={formData.department}
+                  onChange={handleChange}
+                  className="mt-1"
+                  placeholder="Enter department"
+                />
+                {errors.department && <p className="text-red-500 text-sm">{errors.department}</p>}
+              </div>
+            </div>
+
+            {/* Preferences */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="presentationMode" className="text-sm font-medium text-gray-700">
+                  Preferred Presentation Mode <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={formData.presentationMode}
+                  onValueChange={(value) => handleSelectChange("presentationMode", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select presentation mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="online">Online</SelectItem>
+                    <SelectItem value="offline">Offline</SelectItem>
+                    <SelectItem value="hybrid">Hybrid</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.presentationMode && <p className="text-red-500 text-sm">{errors.presentationMode}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="journalPublication" className="text-sm font-medium text-gray-700">
+                  Journal Publication Preference <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={formData.journalPublication}
+                  onValueChange={(value) => handleSelectChange("journalPublication", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select journal publication preference" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yes">Yes</SelectItem>
+                    <SelectItem value="no">No</SelectItem>
+                    <SelectItem value="maybe">Maybe</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.journalPublication && <p className="text-red-500 text-sm">{errors.journalPublication}</p>}
+              </div>
+            </div>
+
+            {/* Message */}
+            <div className="space-y-2">
+              <Label htmlFor="message" className="text-sm font-medium text-gray-700">
+                Additional Message
+              </Label>
+              <Textarea
+                id="message"
+                name="message"
+                value={formData.message}
+                onChange={handleChange}
+                className="mt-1"
+                placeholder="Enter additional message (optional)"
+              />
+            </div>
+
+            {/* File Upload */}
+            <div className="space-y-2">
+              <Label htmlFor="document" className="text-sm font-medium text-gray-700">
+                Upload Document <span className="text-red-500">*</span>
+              </Label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="document"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleFileSelect}
+                />
+                <div className="space-y-2">
+                  <Upload className="h-8 w-8 text-gray-400 mx-auto" />
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-blue-600 hover:text-blue-500 font-medium"
+                    >
+                      Click to upload
+                    </button>
+                    <p className="text-gray-500">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-400">PDF, DOC, DOCX up to 10MB</p>
+                </div>
+                
+                {selectedFile && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center">
+                      <FileText className="h-5 w-5 text-blue-600 mr-2" />
+                      <span className="text-sm font-medium text-blue-900">{selectedFile.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={removeFile}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {errors.document && <p className="text-red-500 text-sm">{errors.document}</p>}
+            </div>
+
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
             >
-              Continue
+              {isSubmitting ? "Submitting..." : "Submit"}
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };

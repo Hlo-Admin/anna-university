@@ -283,11 +283,19 @@ const AdminDashboard = () => {
                 {reviewers.map((reviewer) => (
                   <div key={reviewer.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                      <p className="font-medium">{reviewer.name}</p>
+                      <button
+                        onClick={() => navigate(`/admin/reviewer/${reviewer.id}/submissions`)}
+                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                      >
+                        {reviewer.name}
+                      </button>
                       <p className="text-sm text-gray-500">{reviewer.email}</p>
                       <p className="text-sm text-gray-500">{reviewer.phone}</p>
                       <p className="text-xs text-gray-400">
                         Username: {reviewer.username} | Created: {new Date(reviewer.created_at).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        {submissions.filter(s => s.assigned_to === reviewer.id).length} submissions assigned
                       </p>
                     </div>
                     <Badge variant="secondary">Reviewer</Badge>
