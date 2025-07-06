@@ -17,13 +17,29 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentUrl,
   documentName
 }) => {
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = documentUrl;
-    link.download = documentName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(documentUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = documentName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback to direct download
+      const link = document.createElement('a');
+      link.href = documentUrl;
+      link.download = documentName;
+      link.target = '_self';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const getFileExtension = (filename: string) => {
@@ -37,7 +53,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <iframe
           src={documentUrl}
-          className="w-full h-[800px] border rounded"
+          className="w-full h-[900px] border rounded"
           title={documentName}
         />
       );
@@ -46,12 +62,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         <img
           src={documentUrl}
           alt={documentName}
-          className="max-w-full max-h-[800px] object-contain mx-auto"
+          className="max-w-full max-h-[900px] object-contain mx-auto"
         />
       );
     } else {
       return (
-        <div className="flex flex-col items-center justify-center h-[800px] text-gray-500">
+        <div className="flex flex-col items-center justify-center h-[900px] text-gray-500">
           <FileText className="h-16 w-16 mb-4" />
           <p>Preview not available for this file type</p>
           <p className="text-sm">{documentName}</p>
@@ -62,7 +78,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex justify-between items-center">
             <div>

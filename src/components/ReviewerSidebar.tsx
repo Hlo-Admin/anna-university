@@ -2,7 +2,9 @@
 import { useState } from "react";
 import { 
   LayoutDashboard, 
-  FileText,
+  Clock,
+  CheckCircle,
+  XCircle,
   Menu,
   X
 } from "lucide-react";
@@ -19,7 +21,9 @@ export const ReviewerSidebar = ({ activeView, onViewChange }: ReviewerSidebarPro
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "submissions", label: "My Submissions", icon: FileText },
+    { id: "assigned", label: "Assigned", icon: Clock },
+    { id: "selected", label: "Selected", icon: CheckCircle },
+    { id: "rejected", label: "Rejected", icon: XCircle },
   ];
 
   const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
