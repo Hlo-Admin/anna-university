@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, FileText, X, BookOpen, Users, Award } from "lucide-react";
+import { Upload, FileText, X, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -536,8 +536,12 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <BookOpen className="h-8 w-8 text-blue-600 mr-2" />
-              <span className="text-xl font-bold text-gray-900">Academic Portal</span>
+              <img 
+                src="/lovable-uploads/cc7dfcca-5750-4f88-9b73-4693e619e400.png" 
+                alt="Anna University" 
+                className="h-10 w-10 mr-3"
+              />
+              <span className="text-xl font-bold text-gray-900">Anna University</span>
             </div>
             <div className="flex space-x-4">
               <Button
@@ -563,12 +567,11 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-              Academic Paper
-              <span className="block text-blue-600">Submission Portal</span>
+              Submit Your Paper
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Submit your research papers for journal and conference publications. 
-              Join our community of researchers and contribute to academic excellence.
+              Share your research to be considered for publication in our upcoming issue. 
+              Our editorial team will review your submission and get in touch with the next steps.
             </p>
             <Button
               onClick={() => setShowForm(true)}
@@ -580,95 +583,35 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Features Section */}
+      {/* Instructions Section */}
       <div className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose Our Platform?</h2>
-            <p className="text-lg text-gray-600">Experience seamless paper submission with our advanced features</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center p-6">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                <BookOpen className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Easy Submission</h3>
-              <p className="text-gray-600">
-                Simple and intuitive form to submit your research papers with all necessary details.
-              </p>
-            </div>
-            
-            <div className="text-center p-6">
-              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Users className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Expert Review</h3>
-              <p className="text-gray-600">
-                Your papers are reviewed by qualified experts in their respective fields.
-              </p>
-            </div>
-            
-            <div className="text-center p-6">
-              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Award className="h-8 w-8 text-purple-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Quality Assurance</h3>
-              <p className="text-gray-600">
-                Rigorous quality checks ensure your research meets publication standards.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Instructions Section */}
-      <div className="py-24 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Submission Guidelines</h2>
-            <p className="text-lg text-gray-600">Follow these steps to submit your paper successfully</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">1</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Prepare Your Document</h3>
-              <p className="text-gray-600">Format your paper according to standard academic guidelines. Accepted formats: PDF, DOC, DOCX.</p>
-            </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="bg-green-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">2</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Fill the Form</h3>
-              <p className="text-gray-600">Complete all required fields including author information, institution details, and paper specifics.</p>
-            </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">3</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Upload Document</h3>
-              <p className="text-gray-600">Upload your research paper. Maximum file size: 10MB. Ensure the document is complete and error-free.</p>
-            </div>
-            
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="bg-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4">4</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Submit & Track</h3>
-              <p className="text-gray-600">Submit your paper and receive confirmation. Track your submission status through our review process.</p>
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gray-50 p-8 rounded-lg shadow-md">
+              <ul className="space-y-4 text-lg text-gray-700">
+                <li className="flex items-start">
+                  <span className="text-blue-600 mr-3">•</span>
+                  Complete all required fields accurately
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-600 mr-3">•</span>
+                  Ensure your contact details are up to date
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-600 mr-3">•</span>
+                  Provide a detailed abstract or description in the message field
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-600 mr-3">•</span>
+                  Review your paper and submission details before clicking "Submit"
+                </li>
+              </ul>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="py-24 bg-gradient-to-r from-blue-600 to-green-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Submit Your Research?</h2>
-          <p className="text-xl text-blue-100 mb-8">Join thousands of researchers who trust our platform</p>
-          <Button
-            onClick={() => setShowForm(true)}
-            className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 text-lg rounded-lg shadow-xl hover:shadow-2xl transition-all duration-300"
-          >
-            Get Started Now
-          </Button>
         </div>
       </div>
 
@@ -676,10 +619,14 @@ const Index = () => {
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex items-center justify-center mb-4">
-            <BookOpen className="h-8 w-8 text-blue-400 mr-2" />
-            <span className="text-xl font-bold">Academic Portal</span>
+            <img 
+              src="/lovable-uploads/cc7dfcca-5750-4f88-9b73-4693e619e400.png" 
+              alt="Anna University" 
+              className="h-8 w-8 mr-2"
+            />
+            <span className="text-xl font-bold">Anna University</span>
           </div>
-          <p className="text-gray-400">© 2024 Academic Portal. All rights reserved.</p>
+          <p className="text-gray-400">© 2024 Anna University. All rights reserved.</p>
         </div>
       </footer>
     </div>
