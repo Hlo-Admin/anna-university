@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "npm:resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,25 +22,24 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { to, subject, html, from }: EmailRequest = await req.json();
 
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const gmailUser = Deno.env.get("GMAIL_USER");
-    const gmailPassword = Deno.env.get("GMAIL_APP_PASSWORD");
 
     console.log("Environment check:", {
+      hasResendKey: !!resendApiKey,
       hasGmailUser: !!gmailUser,
-      hasGmailPassword: !!gmailPassword,
-      gmailUserLength: gmailUser?.length || 0,
-      passwordLength: gmailPassword?.length || 0
+      resendKeyLength: resendApiKey?.length || 0
     });
 
-    if (!gmailUser || !gmailPassword) {
-      const errorMsg = "Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD secrets.";
+    if (!resendApiKey) {
+      const errorMsg = "Resend API key not configured. Please set RESEND_API_KEY secret.";
       console.error(errorMsg);
       return new Response(
         JSON.stringify({ 
           error: errorMsg,
           details: {
-            hasGmailUser: !!gmailUser,
-            hasGmailPassword: !!gmailPassword
+            hasResendKey: !!resendApiKey,
+            suggestion: "Get your API key from https://resend.com/api-keys"
           }
         }),
         {
@@ -49,73 +49,31 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Clean the app password by removing spaces
-    const cleanAppPassword = gmailPassword.replace(/\s+/g, '');
-    
-    console.log("Sending email to:", to);
-    console.log("From:", from || gmailUser);
+    console.log("Sending email via Resend to:", to);
+    console.log("From:", from || gmailUser || "onboarding@resend.dev");
     console.log("Subject:", subject);
-    console.log("Cleaned password length:", cleanAppPassword.length);
 
-    // Use nodemailer-like approach with fetch to Gmail's API
-    const emailContent = [
-      `From: ${from || gmailUser}`,
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      `Content-Type: text/html; charset=utf-8`,
-      ``,
-      html
-    ].join('\r\n');
+    const resend = new Resend(resendApiKey);
 
-    // Encode email content in base64
-    const encodedEmail = btoa(emailContent).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-    // Use Gmail API instead of SMTP
-    const gmailApiUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/send`;
-    
-    // First, get OAuth token using app password (this is a simplified approach)
-    // For production, you'd want to use proper OAuth2 flow
-    
-    // Alternative: Use a more direct SMTP approach with basic authentication
     try {
-      // Create the email message in RFC 2822 format
-      const message = [
-        `From: ${from || gmailUser}`,
-        `To: ${to}`,
-        `Subject: ${subject}`,
-        `MIME-Version: 1.0`,
-        `Content-Type: text/html; charset=utf-8`,
-        ``,
-        html
-      ].join('\r\n');
+      const emailResponse = await resend.emails.send({
+        from: from || `Admin <${gmailUser || "onboarding@resend.dev"}>`,
+        to: [to],
+        subject: subject,
+        html: html,
+      });
 
-      // Use a working SMTP implementation via fetch to a relay service
-      // Since direct SMTP is problematic, let's use Gmail's SMTP via a different approach
-      
-      // For now, let's use a simpler email service approach
-      console.log("Attempting to send email via alternative method...");
-      
-      // Create basic auth header for Gmail SMTP
-      const auth = btoa(`${gmailUser}:${cleanAppPassword}`);
-      
-      // Since SMTP library is broken, let's simulate success for now
-      // and log the email details
-      console.log("Email would be sent with the following details:");
-      console.log("To:", to);
-      console.log("Subject:", subject);
-      console.log("HTML content length:", html.length);
-      console.log("Authentication configured for:", gmailUser);
+      console.log("Email sent successfully via Resend:", emailResponse);
 
-      // Return success response
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Email sending initiated successfully",
+          message: "Email sent successfully via Resend",
           details: {
             to,
             subject,
-            from: from || gmailUser,
-            note: "Email service is configured and ready"
+            from: from || gmailUser || "onboarding@resend.dev",
+            emailId: emailResponse.data?.id
           }
         }),
         {
@@ -125,15 +83,15 @@ const handler = async (req: Request): Promise<Response> => {
       );
 
     } catch (emailError: any) {
-      console.error("Email sending error:", emailError);
+      console.error("Resend email sending error:", emailError);
       
       return new Response(
         JSON.stringify({ 
-          error: `Failed to send email: ${emailError.message}`,
+          error: `Failed to send email via Resend: ${emailError.message}`,
           details: {
-            errorType: emailError.name || 'EmailError',
+            errorType: emailError.name || 'ResendError',
             message: emailError.message,
-            suggestion: "Please verify your Gmail credentials and app password."
+            suggestion: "Please verify your Resend API key and domain configuration."
           }
         }),
         {
