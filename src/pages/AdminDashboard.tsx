@@ -11,6 +11,7 @@ import { DocumentViewer } from "@/components/DocumentViewer";
 import { CreateReviewerDialog } from "@/components/CreateReviewerDialog";
 import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
 import { StatusUpdateDialog } from "@/components/StatusUpdateDialog";
+import { AssignReviewerDialog } from "@/components/AssignReviewerDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface FormSubmission {
@@ -83,6 +84,21 @@ const AdminDashboard = () => {
     newStatus: "",
     paperTitle: ""
   });
+  const [assignReviewerDialog, setAssignReviewerDialog] = useState<{
+    isOpen: boolean;
+    submissionId: string;
+    reviewerId: string;
+    paperTitle: string;
+    reviewerName: string;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    submissionId: "",
+    reviewerId: "",
+    paperTitle: "",
+    reviewerName: "",
+    isLoading: false
+  });
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -128,6 +144,82 @@ const AdminDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
     navigate("/login");
+  };
+
+  const handleAssignReviewerRequest = (submissionId: string, reviewerId: string) => {
+    const submission = submissions.find(s => s.id === submissionId);
+    const reviewer = reviewers.find(r => r.id === reviewerId);
+    
+    if (submission && reviewer) {
+      setAssignReviewerDialog({
+        isOpen: true,
+        submissionId,
+        reviewerId,
+        paperTitle: submission.paper_title,
+        reviewerName: reviewer.name,
+        isLoading: false
+      });
+    }
+  };
+
+  const confirmAssignReviewer = async () => {
+    setAssignReviewerDialog(prev => ({ ...prev, isLoading: true }));
+    
+    try {
+      const { error } = await supabase
+        .from('paper_submissions')
+        .update({ 
+          assigned_to: assignReviewerDialog.reviewerId, 
+          status: 'assigned',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assignReviewerDialog.submissionId);
+
+      if (error) throw error;
+
+      // Send assignment email
+      const submission = submissions.find(s => s.id === assignReviewerDialog.submissionId);
+      const reviewer = reviewers.find(r => r.id === assignReviewerDialog.reviewerId);
+      
+      if (submission && reviewer) {
+        try {
+          const { sendEmail, createAssignmentEmail } = await import("@/utils/emailService");
+          const emailHtml = createAssignmentEmail(
+            reviewer.name,
+            submission.paper_title,
+            submission.author_name
+          );
+          
+          await sendEmail({
+            to: reviewer.email,
+            subject: `New Paper Assignment: ${submission.paper_title}`,
+            html: emailHtml
+          });
+          
+          toast({
+            title: "Assignment Updated",
+            description: "Form has been assigned to reviewer and email notification sent",
+          });
+        } catch (emailError: any) {
+          console.error("Email sending failed:", emailError);
+          toast({
+            title: "Assignment Updated",
+            description: "Form has been assigned to reviewer, but email notification failed",
+            variant: "destructive"
+          });
+        }
+      }
+
+      loadData(); // Refresh data
+      setAssignReviewerDialog(prev => ({ ...prev, isOpen: false, isLoading: false }));
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+      setAssignReviewerDialog(prev => ({ ...prev, isLoading: false }));
+    }
   };
 
   const assignToReviewer = async (submissionId: string, reviewerId: string) => {
@@ -211,8 +303,10 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      // Send status update email
+      // Get submission details for student email
       const submission = submissions.find(s => s.id === statusUpdate.submissionId);
+      
+      // Send status update email to reviewer (existing logic)
       if (submission && submission.assigned_to) {
         const reviewer = reviewers.find(r => r.id === submission.assigned_to);
         if (reviewer) {
@@ -229,20 +323,44 @@ const AdminDashboard = () => {
               subject: `Status Update: ${submission.paper_title}`,
               html: emailHtml
             });
-            
-            toast({
-              title: "Status Updated",
-              description: `Submission status changed to ${statusUpdate.newStatus} and email notification sent`,
-            });
           } catch (emailError: any) {
-            console.error("Email sending failed:", emailError);
-            toast({
-              title: "Status Updated",
-              description: `Submission status changed to ${statusUpdate.newStatus}, but email notification failed`,
-              variant: "destructive"
-            });
+            console.error("Email to reviewer failed:", emailError);
           }
         }
+      }
+
+      // Send email to student if status is selected or rejected
+      if (submission && (statusUpdate.newStatus === 'selected' || statusUpdate.newStatus === 'rejected')) {
+        try {
+          const { sendEmail, createStudentStatusUpdateEmail } = await import("@/utils/emailService");
+          const emailHtml = createStudentStatusUpdateEmail(
+            submission.author_name,
+            submission.paper_title,
+            statusUpdate.newStatus
+          );
+          
+          await sendEmail({
+            to: submission.email,
+            subject: `Paper Review Update: ${submission.paper_title}`,
+            html: emailHtml
+          });
+
+          toast({
+            title: "Status Updated",
+            description: `Submission status changed to ${statusUpdate.newStatus} and email notifications sent to both reviewer and student`,
+          });
+        } catch (emailError: any) {
+          console.error("Email to student failed:", emailError);
+          toast({
+            title: "Status Updated",
+            description: `Submission status changed to ${statusUpdate.newStatus} and email notification sent to reviewer`,
+          });
+        }
+      } else {
+        toast({
+          title: "Status Updated",
+          description: `Submission status changed to ${statusUpdate.newStatus} and email notification sent to reviewer`,
+        });
       }
 
       loadData(); // Refresh data
@@ -306,6 +424,8 @@ const AdminDashboard = () => {
 
   const getFilteredSubmissions = () => {
     switch (activeView) {
+      case "unassigned":
+        return submissions.filter(s => s.assigned_to === null || s.status === "pending");
       case "assigned":
         return submissions.filter(s => s.status === "assigned");
       case "selected":
@@ -448,6 +568,7 @@ const AdminDashboard = () => {
             <CardHeader>
               <CardTitle>
                 {activeView === "all-data" ? "All Paper Submissions" :
+                 activeView === "unassigned" ? "Unassigned Submissions" :
                  activeView === "assigned" ? "Assigned Submissions" :
                  activeView === "selected" ? "Selected Submissions" :
                  activeView === "rejected" ? "Rejected Submissions" : "Paper Submissions"}
@@ -518,7 +639,7 @@ const AdminDashboard = () => {
                         
                         <Select
                           value={submission.assigned_to || ""}
-                          onValueChange={(value) => assignToReviewer(submission.id, value)}
+                          onValueChange={(value) => handleAssignReviewerRequest(submission.id, value)}
                         >
                           <SelectTrigger className="w-48">
                             <SelectValue placeholder="Assign to reviewer" />
@@ -596,6 +717,15 @@ const AdminDashboard = () => {
         currentStatus={statusUpdate.currentStatus}
         newStatus={statusUpdate.newStatus}
         paperTitle={statusUpdate.paperTitle}
+      />
+
+      <AssignReviewerDialog
+        isOpen={assignReviewerDialog.isOpen}
+        onClose={() => setAssignReviewerDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmAssignReviewer}
+        paperTitle={assignReviewerDialog.paperTitle}
+        reviewerName={assignReviewerDialog.reviewerName}
+        isLoading={assignReviewerDialog.isLoading}
       />
     </div>
   );

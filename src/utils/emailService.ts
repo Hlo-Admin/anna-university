@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 interface SendEmailParams {
@@ -237,6 +236,66 @@ export const createReviewerCredentialsEmail = (reviewerName: string, username: s
         <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
           <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Admin Team</strong></p>
           <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">If you have any questions, please contact the administrator.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+// New email template for student status updates
+export const createStudentStatusUpdateEmail = (studentName: string, paperTitle: string, newStatus: string) => {
+  const statusMessages = {
+    'selected': {
+      title: 'Congratulations! Your Paper Has Been Selected',
+      message: 'We are pleased to inform you that your paper has been selected for publication.',
+      color: '#059669',
+      actionText: 'View Publication Details'
+    },
+    'rejected': {
+      title: 'Paper Review Update',
+      message: 'After careful review, we regret to inform you that your paper has not been selected for publication at this time.',
+      color: '#dc2626',
+      actionText: 'Submit Another Paper'
+    }
+  };
+
+  const statusInfo = statusMessages[newStatus as keyof typeof statusMessages];
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Paper Review Update</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 0;">
+        <div style="background-color: ${statusInfo.color}; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${statusInfo.title}</h1>
+        </div>
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Dear ${studentName},</p>
+          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">${statusInfo.message}</p>
+          
+          <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid ${statusInfo.color};">
+            <h2 style="margin: 0 0 15px 0; color: #1f2937; font-size: 20px;">${paperTitle}</h2>
+            <p style="margin: 0; font-size: 16px;">
+              <strong>Status:</strong> 
+              <span style="color: ${statusInfo.color}; font-weight: bold; text-transform: uppercase; background-color: rgba(37, 99, 235, 0.1); padding: 4px 8px; border-radius: 4px;">
+                ${newStatus}
+              </span>
+            </p>
+          </div>
+          
+          ${newStatus === 'selected' ? 
+            `<p style="font-size: 16px; color: #374151; margin-bottom: 30px;">We will contact you soon with further details regarding the publication process.</p>` :
+            `<p style="font-size: 16px; color: #374151; margin-bottom: 30px;">Thank you for your submission. We encourage you to consider submitting future work for review.</p>`
+          }
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Anna University Editorial Team</strong></p>
         </div>
       </div>
     </body>

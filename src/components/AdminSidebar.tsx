@@ -8,6 +8,7 @@ import {
   UserCheck, 
   UserX, 
   CheckCircle,
+  FileX,
   Menu,
   X
 } from "lucide-react";
@@ -26,6 +27,7 @@ export const AdminSidebar = ({ activeView, onViewChange }: AdminSidebarProps) =>
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "reviewers", label: "Reviewers", icon: Users },
     { id: "all-data", label: "All Data", icon: Database },
+    { id: "unassigned", label: "Unassigned", icon: FileX },
     { id: "assigned", label: "Assigned", icon: UserCheck },
     { id: "selected", label: "Selected", icon: CheckCircle },
     { id: "rejected", label: "Rejected", icon: UserX },
