@@ -97,6 +97,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_active: boolean
           name: string
           password: string
           phone: string
@@ -107,6 +108,7 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          is_active?: boolean
           name: string
           password: string
           phone: string
@@ -117,6 +119,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          is_active?: boolean
           name?: string
           password?: string
           phone?: string

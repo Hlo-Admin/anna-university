@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, User, LogOut, Plus, FileText, Download, Eye, Edit, UserOff } from "lucide-react";
+import { Users, User, LogOut, Plus, FileText, Download, Eye, Edit, UserX } from "lucide-react";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { CreateReviewerDialog } from "@/components/CreateReviewerDialog";
@@ -106,7 +106,7 @@ const AdminDashboard = () => {
 
       if (submissionsError) throw submissionsError;
 
-      // Load reviewers
+      // Load reviewers with is_active field
       const { data: reviewersData, error: reviewersError } = await supabase
         .from('reviewers')
         .select('*')
@@ -367,7 +367,7 @@ const AdminDashboard = () => {
                           size="sm"
                           onClick={() => toggleReviewerStatus(reviewer.id, reviewer.is_active !== false)}
                         >
-                          <UserOff className="h-4 w-4" />
+                          <UserX className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
