@@ -143,11 +143,40 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
+      // Send assignment email
+      const submission = submissions.find(s => s.id === submissionId);
+      const reviewer = reviewers.find(r => r.id === reviewerId);
+      
+      if (submission && reviewer) {
+        try {
+          const { sendEmail, createAssignmentEmail } = await import("@/utils/emailService");
+          const emailHtml = createAssignmentEmail(
+            reviewer.name,
+            submission.paper_title,
+            submission.author_name
+          );
+          
+          await sendEmail({
+            to: reviewer.email,
+            subject: `New Paper Assignment: ${submission.paper_title}`,
+            html: emailHtml
+          });
+          
+          toast({
+            title: "Assignment Updated",
+            description: "Form has been assigned to reviewer and email notification sent",
+          });
+        } catch (emailError: any) {
+          console.error("Email sending failed:", emailError);
+          toast({
+            title: "Assignment Updated",
+            description: "Form has been assigned to reviewer, but email notification failed",
+            variant: "destructive"
+          });
+        }
+      }
+
       loadData(); // Refresh data
-      toast({
-        title: "Assignment Updated",
-        description: "Form has been assigned to reviewer",
-      });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -182,11 +211,41 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
+      // Send status update email
+      const submission = submissions.find(s => s.id === statusUpdate.submissionId);
+      if (submission && submission.assigned_to) {
+        const reviewer = reviewers.find(r => r.id === submission.assigned_to);
+        if (reviewer) {
+          try {
+            const { sendEmail, createStatusUpdateEmail } = await import("@/utils/emailService");
+            const emailHtml = createStatusUpdateEmail(
+              reviewer.name,
+              submission.paper_title,
+              statusUpdate.newStatus
+            );
+            
+            await sendEmail({
+              to: reviewer.email,
+              subject: `Status Update: ${submission.paper_title}`,
+              html: emailHtml
+            });
+            
+            toast({
+              title: "Status Updated",
+              description: `Submission status changed to ${statusUpdate.newStatus} and email notification sent`,
+            });
+          } catch (emailError: any) {
+            console.error("Email sending failed:", emailError);
+            toast({
+              title: "Status Updated",
+              description: `Submission status changed to ${statusUpdate.newStatus}, but email notification failed`,
+              variant: "destructive"
+            });
+          }
+        }
+      }
+
       loadData(); // Refresh data
-      toast({
-        title: "Status Updated",
-        description: `Submission status changed to ${statusUpdate.newStatus}`,
-      });
       setStatusUpdate({ ...statusUpdate, isOpen: false });
     } catch (error: any) {
       toast({
