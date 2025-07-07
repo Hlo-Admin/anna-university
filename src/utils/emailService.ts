@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 interface SendEmailParams {
@@ -123,6 +124,119 @@ export const createAssignmentEmail = (reviewerName: string, paperTitle: string, 
         </div>
         <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
           <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Admin Team</strong></p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+// New email template for student registration confirmation
+export const createRegistrationConfirmationEmail = (studentName: string, paperTitle: string) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Registration Confirmation</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 0;">
+        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
+          <img src="https://your-domain.com/logo.png" alt="Anna University" style="height: 50px; margin-bottom: 15px;" />
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Thank You for Your Submission!</h1>
+        </div>
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Dear ${studentName},</p>
+          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">Thank you for submitting your paper for review. We have successfully received your submission:</p>
+          
+          <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #2563eb;">
+            <h2 style="margin: 0 0 15px 0; color: #1f2937; font-size: 20px;">${paperTitle}</h2>
+            <p style="margin: 0; font-size: 16px; color: #374151;">
+              <strong>Status:</strong> 
+              <span style="color: #d97706; font-weight: bold; text-transform: uppercase; background-color: rgba(217, 119, 6, 0.1); padding: 4px 8px; border-radius: 4px;">
+                Under Review
+              </span>
+            </p>
+          </div>
+          
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Your paper is now under review by our editorial team. Here's what happens next:</p>
+          
+          <ul style="font-size: 16px; color: #374151; margin-bottom: 30px; padding-left: 20px;">
+            <li style="margin-bottom: 10px;">Our team will review your submission for completeness and quality</li>
+            <li style="margin-bottom: 10px;">Your paper will be assigned to relevant reviewers</li>
+            <li style="margin-bottom: 10px;">You will receive updates on the review status via email</li>
+            <li>The review process typically takes 2-4 weeks</li>
+          </ul>
+          
+          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">If you have any questions or need to make any updates to your submission, please contact us immediately.</p>
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Anna University Editorial Team</strong></p>
+          <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+// New email template for reviewer account creation
+export const createReviewerCredentialsEmail = (reviewerName: string, username: string, password: string) => {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Your Reviewer Account</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: Arial, sans-serif;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 0;">
+        <div style="background-color: #059669; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Welcome to the Review Panel</h1>
+        </div>
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Dear ${reviewerName},</p>
+          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">Your reviewer account has been successfully created. You can now access the reviewer dashboard to review assigned papers.</p>
+          
+          <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #059669;">
+            <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 18px;">Your Login Credentials</h3>
+            <p style="margin: 0 0 10px 0; font-size: 16px;">
+              <strong>Username:</strong> 
+              <span style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${username}</span>
+            </p>
+            <p style="margin: 0; font-size: 16px;">
+              <strong>Password:</strong> 
+              <span style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${password}</span>
+            </p>
+          </div>
+          
+          <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #f59e0b;">
+            <p style="margin: 0; font-size: 14px; color: #92400e;">
+              <strong>Security Notice:</strong> Please change your password after your first login for security purposes. Keep your credentials confidential and do not share them with anyone.
+            </p>
+          </div>
+          
+          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">As a reviewer, you will be able to:</p>
+          
+          <ul style="font-size: 16px; color: #374151; margin-bottom: 30px; padding-left: 20px;">
+            <li style="margin-bottom: 10px;">Access and review assigned papers</li>
+            <li style="margin-bottom: 10px;">Provide feedback and recommendations</li>
+            <li style="margin-bottom: 10px;">Track the status of your reviews</li>
+            <li>Communicate with the editorial team</li>
+          </ul>
+          
+          <div style="text-align: center; margin: 40px 0;">
+            <a href="#" style="background-color: #059669; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+              Access Reviewer Dashboard
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Admin Team</strong></p>
+          <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">If you have any questions, please contact the administrator.</p>
         </div>
       </div>
     </body>

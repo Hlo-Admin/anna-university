@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import PhoneInput from "./PhoneInput";
+import { sendEmail, createReviewerCredentialsEmail } from "@/utils/emailService";
 
 interface CreateReviewerDialogProps {
   isOpen: boolean;
@@ -54,10 +55,32 @@ export const CreateReviewerDialog: React.FC<CreateReviewerDialogProps> = ({
 
       if (error) throw error;
 
-      toast({
-        title: "Reviewer Created",
-        description: `Account created for ${formData.name}`,
-      });
+      // Send credentials email to reviewer
+      try {
+        const emailHtml = createReviewerCredentialsEmail(
+          formData.name,
+          formData.username,
+          formData.password
+        );
+        
+        await sendEmail({
+          to: formData.email,
+          subject: "Your Reviewer Account Credentials - Anna University",
+          html: emailHtml
+        });
+        
+        toast({
+          title: "Reviewer Created",
+          description: `Account created for ${formData.name} and credentials sent via email`,
+        });
+      } catch (emailError: any) {
+        console.error("Failed to send credentials email:", emailError);
+        toast({
+          title: "Reviewer Created",
+          description: `Account created for ${formData.name}, but failed to send credentials email`,
+          variant: "destructive"
+        });
+      }
 
       setFormData({
         name: "",

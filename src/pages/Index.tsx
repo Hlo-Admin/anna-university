@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Upload, FileText, X, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { sendEmail, createRegistrationConfirmationEmail } from "@/utils/emailService";
 
 const Index = () => {
   const [formData, setFormData] = useState({
@@ -136,9 +138,28 @@ const Index = () => {
         throw submissionError;
       }
 
+      // Send confirmation email to student
+      try {
+        const emailHtml = createRegistrationConfirmationEmail(
+          formData.authorName,
+          formData.paperTitle
+        );
+        
+        await sendEmail({
+          to: formData.email,
+          subject: `Submission Confirmation: ${formData.paperTitle}`,
+          html: emailHtml
+        });
+        
+        console.log("Confirmation email sent to student");
+      } catch (emailError: any) {
+        console.error("Failed to send confirmation email:", emailError);
+        // Don't block the submission if email fails
+      }
+
       toast({
         title: "Success",
-        description: "Form submitted successfully!",
+        description: "Form submitted successfully! A confirmation email has been sent to your email address.",
       });
 
       setShowForm(false);
