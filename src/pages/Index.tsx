@@ -204,8 +204,8 @@ const Index = () => {
                     <SelectValue placeholder="Select submission type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="journal">Journal</SelectItem>
-                    <SelectItem value="conference">Conference</SelectItem>
+                    <SelectItem value="abstract">Abstract</SelectItem>
+                    <SelectItem value="fullpaper">Full Paper</SelectItem>
                   </SelectContent>
                 </Select>
                 {errors.submissionType && <p className="text-red-500 text-sm">{errors.submissionType}</p>}
@@ -412,9 +412,10 @@ const Index = () => {
                       <SelectValue placeholder="Select presentation mode" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="online">Online</SelectItem>
-                      <SelectItem value="offline">Offline</SelectItem>
-                      <SelectItem value="hybrid">Hybrid</SelectItem>
+                      <SelectItem value="oral">Oral Presentation</SelectItem>
+                      <SelectItem value="poster">Poster Presentation</SelectItem>
+                      <SelectItem value="virtual">Virtual Presentation</SelectItem>
+                      <SelectItem value="video">Video Presentation</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors.presentationMode && <p className="text-red-500 text-sm">{errors.presentationMode}</p>}
@@ -434,7 +435,6 @@ const Index = () => {
                     <SelectContent>
                       <SelectItem value="yes">Yes</SelectItem>
                       <SelectItem value="no">No</SelectItem>
-                      <SelectItem value="maybe">Maybe</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors.journalPublication && <p className="text-red-500 text-sm">{errors.journalPublication}</p>}
