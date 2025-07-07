@@ -25,7 +25,7 @@ const handler = async (req: Request): Promise<Response> => {
     // const gmailPassword = Deno.env.get("GMAIL_APP_PASSWORD");
 
     const gmailUser = 'karthikkishore2603@gmail.com'
-    const gmailPassword = 'mqhk qevy gdbs vsii'
+    const gmailPassword = 'mqhkqevygdbsvsii'
     if (!gmailUser || !gmailPassword) {
       console.error("Gmail credentials not configured");
       throw new Error("Gmail credentials not configured");
