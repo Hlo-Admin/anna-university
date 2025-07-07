@@ -73,6 +73,17 @@ const Login = () => {
 
       if (reviewers && reviewers.length > 0) {
         const reviewer = reviewers[0];
+        
+        // Check if reviewer is active
+        if (reviewer.is_active === false) {
+          toast({
+            title: "Access Denied",
+            description: "Your account has been deactivated. Please contact the administrator.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
         // Store reviewer session
         localStorage.setItem("currentUser", JSON.stringify({
           id: reviewer.id,
