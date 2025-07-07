@@ -21,40 +21,15 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { to, subject, html, from }: EmailRequest = await req.json();
 
-    const gmailUser = Deno.env.get("GMAIL_USER");
-    const gmailAppPassword = Deno.env.get("GMAIL_APP_PASSWORD");
+    const gmailUser = Deno.env.get("GMAIL_USER") || "karthikkishore2603@gmail.com";
+    const gmailAppPassword = Deno.env.get("GMAIL_APP_PASSWORD") || "mqhkqevygdbsvsii";
 
-    console.log("Environment check:", {
-      hasGmailUser: !!gmailUser,
-      hasGmailPassword: !!gmailAppPassword,
-      gmailUser: gmailUser
-    });
-
-    if (!gmailUser || !gmailAppPassword) {
-      const errorMsg = "Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD secrets.";
-      console.error(errorMsg);
-      return new Response(
-        JSON.stringify({ 
-          error: errorMsg,
-          details: {
-            hasGmailUser: !!gmailUser,
-            hasGmailPassword: !!gmailAppPassword
-          }
-        }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
-
-    // Use Gmail's SMTP via a direct connection
-    console.log("Attempting to send email via Gmail SMTP...");
+    console.log("Sending email via Gmail SMTP...");
     console.log("To:", to);
     console.log("Subject:", subject);
     console.log("From:", from || gmailUser);
 
-    // Create the email message in proper format
+    // Create email message in RFC 2822 format
     const emailMessage = createEmailMessage({
       from: from || gmailUser,
       to,
@@ -62,16 +37,16 @@ const handler = async (req: Request): Promise<Response> => {
       html
     });
 
-    // Use Gmail API via REST (more reliable than SMTP in serverless)
+    // Send via Gmail SMTP using raw TCP connection
     try {
-      const response = await sendViaGmailREST(emailMessage, gmailUser, gmailAppPassword);
+      await sendViaGmailSMTP(emailMessage, gmailUser, gmailAppPassword);
       
-      console.log("Email sent successfully via Gmail REST API");
+      console.log("Email sent successfully via Gmail SMTP");
 
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Email sent successfully via Gmail",
+          message: "Email sent successfully via Gmail SMTP",
           details: {
             to,
             subject,
@@ -84,31 +59,31 @@ const handler = async (req: Request): Promise<Response> => {
         }
       );
 
-    } catch (gmailError: any) {
-      console.error("Gmail sending error:", gmailError);
+    } catch (smtpError: any) {
+      console.error("Gmail SMTP error:", smtpError);
       
-      // Fallback: Log the email details for manual processing
-      console.log("EMAIL CONTENT TO BE SENT:");
-      console.log("=========================");
+      // Log email details for debugging
+      console.log("EMAIL CONTENT:");
+      console.log("=============");
       console.log("From:", from || gmailUser);
       console.log("To:", to);
       console.log("Subject:", subject);
       console.log("HTML Content:", html);
-      console.log("=========================");
+      console.log("=============");
       
       return new Response(
         JSON.stringify({ 
-          success: true,
-          message: "Email logged for processing (Gmail API temporarily unavailable)",
+          success: false,
+          message: "Failed to send email via Gmail SMTP",
+          error: smtpError.message,
           details: {
             to,
             subject,
-            from: from || gmailUser,
-            note: "Email details logged in function logs"
+            from: from || gmailUser
           }
         }),
         {
-          status: 200,
+          status: 500,
           headers: { "Content-Type": "application/json", ...corsHeaders },
         }
       );
@@ -132,22 +107,77 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 function createEmailMessage({ from, to, subject, html }: { from: string, to: string, subject: string, html: string }) {
-  return {
-    from,
-    to,
-    subject,
-    html
-  };
+  const boundary = "boundary_" + Math.random().toString(36).substr(2, 9);
+  
+  return [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ``,
+    `--${boundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: 7bit`,
+    ``,
+    html,
+    ``,
+    `--${boundary}--`,
+    ``
+  ].join('\r\n');
 }
 
-async function sendViaGmailREST(message: any, gmailUser: string, gmailAppPassword: string) {
-  // For now, we'll simulate the Gmail API call
-  // In a real implementation, you'd use OAuth2 tokens with Gmail API
-  console.log("Simulating Gmail API send for:", message);
+async function sendViaGmailSMTP(message: string, username: string, password: string) {
+  console.log("Connecting to Gmail SMTP server...");
   
-  // This is a placeholder - Gmail API requires OAuth2 setup
-  // For now, we'll just log the email details
-  throw new Error("Gmail API requires OAuth2 setup - email logged instead");
+  try {
+    // Connect to Gmail SMTP server
+    const conn = await Deno.connectTls({
+      hostname: "smtp.gmail.com",
+      port: 465,
+    });
+
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    // Helper function to send command and read response
+    const sendCommand = async (command: string): Promise<string> => {
+      console.log("SMTP Command:", command.replace(password, '***'));
+      await conn.write(encoder.encode(command + '\r\n'));
+      
+      const buffer = new Uint8Array(1024);
+      const n = await conn.read(buffer);
+      const response = decoder.decode(buffer.subarray(0, n || 0));
+      console.log("SMTP Response:", response.trim());
+      return response;
+    };
+
+    // SMTP conversation
+    await sendCommand(''); // Wait for server greeting
+    await sendCommand('EHLO localhost');
+    
+    // Authentication
+    await sendCommand('AUTH LOGIN');
+    await sendCommand(btoa(username)); // Base64 encode username
+    await sendCommand(btoa(password)); // Base64 encode password
+    
+    // Send email
+    const fromEmail = message.match(/From: (.+?)$/m)?.[1] || username;
+    const toEmail = message.match(/To: (.+?)$/m)?.[1] || '';
+    
+    await sendCommand(`MAIL FROM:<${fromEmail}>`);
+    await sendCommand(`RCPT TO:<${toEmail}>`);
+    await sendCommand('DATA');
+    await sendCommand(message + '\r\n.');
+    await sendCommand('QUIT');
+    
+    conn.close();
+    console.log("Email sent successfully via Gmail SMTP");
+    
+  } catch (error) {
+    console.error("SMTP connection error:", error);
+    throw new Error(`SMTP Error: ${error.message}`);
+  }
 }
 
 serve(handler);
