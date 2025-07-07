@@ -1,6 +1,4 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 interface SendEmailParams {
   to: string;
@@ -23,15 +21,15 @@ export const sendEmail = async ({ to, subject, html, from }: SendEmailParams) =>
     });
 
     if (error) {
-      console.error('Email sending error:', error);
-      throw error;
+      console.error('Email sending error details:', error);
+      throw new Error(`Failed to send email: ${error.message || 'Unknown error'}`);
     }
 
     console.log('Email sent successfully:', data);
     return data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to send email:', error);
-    throw error;
+    throw new Error(`Email service error: ${error.message || 'Unknown error'}`);
   }
 };
 

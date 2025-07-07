@@ -25,9 +25,28 @@ const handler = async (req: Request): Promise<Response> => {
     const gmailUser = Deno.env.get("GMAIL_USER");
     const gmailPassword = Deno.env.get("GMAIL_APP_PASSWORD");
 
+    console.log("Environment check:", {
+      hasGmailUser: !!gmailUser,
+      hasGmailPassword: !!gmailPassword,
+      gmailUserLength: gmailUser?.length || 0
+    });
+
     if (!gmailUser || !gmailPassword) {
-      console.error("Gmail credentials not configured");
-      throw new Error("Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD secrets.");
+      const errorMsg = "Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD secrets.";
+      console.error(errorMsg);
+      return new Response(
+        JSON.stringify({ 
+          error: errorMsg,
+          details: {
+            hasGmailUser: !!gmailUser,
+            hasGmailPassword: !!gmailPassword
+          }
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     console.log("Sending email to:", to);
@@ -61,7 +80,15 @@ const handler = async (req: Request): Promise<Response> => {
       await client.close();
 
       return new Response(
-        JSON.stringify({ success: true, message: "Email sent successfully" }),
+        JSON.stringify({ 
+          success: true, 
+          message: "Email sent successfully",
+          details: {
+            to,
+            subject,
+            from: from || gmailUser
+          }
+        }),
         {
           status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -69,7 +96,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
 
     } catch (smtpError: any) {
-      console.error("SMTP Error:", smtpError);
+      console.error("SMTP Error details:", smtpError);
       
       // Try to close connection if it's still open
       try {
@@ -78,13 +105,32 @@ const handler = async (req: Request): Promise<Response> => {
         console.log("Error closing SMTP connection:", closeError);
       }
 
-      throw new Error(`Failed to send email via Gmail SMTP: ${smtpError.message}. Please verify your Gmail credentials and ensure you're using an App Password (not your regular Gmail password).`);
+      return new Response(
+        JSON.stringify({ 
+          error: `Failed to send email via Gmail SMTP: ${smtpError.message}`,
+          details: {
+            errorType: smtpError.name || 'SMTPError',
+            message: smtpError.message,
+            suggestion: "Please verify your Gmail credentials and ensure you're using an App Password (not your regular Gmail password)."
+          }
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
   } catch (error: any) {
-    console.error("Error sending email:", error);
+    console.error("General error in send-gmail function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: `Email function error: ${error.message}`,
+        details: {
+          errorType: error.name || 'GeneralError',
+          stack: error.stack
+        }
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
