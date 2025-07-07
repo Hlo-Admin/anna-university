@@ -28,7 +28,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Environment check:", {
       hasGmailUser: !!gmailUser,
       hasGmailPassword: !!gmailPassword,
-      gmailUserLength: gmailUser?.length || 0
+      gmailUserLength: gmailUser?.length || 0,
+      passwordLength: gmailPassword?.length || 0
     });
 
     if (!gmailUser || !gmailPassword) {
@@ -49,9 +50,13 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Clean the app password by removing spaces and converting to lowercase
+    const cleanAppPassword = gmailPassword.replace(/\s+/g, '').toLowerCase();
+    
     console.log("Sending email to:", to);
     console.log("From:", from || gmailUser);
     console.log("Subject:", subject);
+    console.log("Cleaned password length:", cleanAppPassword.length);
 
     // Use Gmail SMTP with proper authentication
     const client = new SmtpClient();
@@ -63,7 +68,7 @@ const handler = async (req: Request): Promise<Response> => {
         hostname: "smtp.gmail.com",
         port: 465,
         username: gmailUser,
-        password: gmailPassword,
+        password: cleanAppPassword,
       });
 
       console.log("Connected to Gmail SMTP, sending email...");
