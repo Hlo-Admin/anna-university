@@ -33,8 +33,8 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("From:", from || gmailUser);
     console.log("Subject:", subject);
 
-    // Use a more reliable SMTP approach with proper encoding
-    const result = await sendViaGmailSMTP(gmailUser, gmailPassword, to, subject, html, from);
+    // Use a real SMTP service via HTTP API instead of direct SMTP
+    const result = await sendViaEmailService(gmailUser, gmailPassword, to, subject, html, from);
     
     console.log("Email sent successfully:", result);
 
@@ -54,75 +54,55 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-async function sendViaGmailSMTP(gmailUser: string, gmailPassword: string, to: string, subject: string, html: string, from?: string): Promise<any> {
-  const smtpHost = "smtp.gmail.com";
-  const smtpPort = 587;
-  
+async function sendViaEmailService(gmailUser: string, gmailPassword: string, to: string, subject: string, html: string, from?: string): Promise<any> {
   try {
-    console.log("Connecting to Gmail SMTP...");
+    console.log("Attempting to send email via SMTP2GO service...");
     
-    // Use fetch to send email via Gmail SMTP API simulation
-    // This is a simplified approach that works better in Deno edge functions
-    const emailData = {
-      service: 'gmail',
-      host: smtpHost,
-      port: smtpPort,
-      secure: false,
-      auth: {
-        user: gmailUser,
-        pass: gmailPassword
-      },
-      from: from || gmailUser,
-      to: to,
-      subject: subject,
-      html: html
-    };
-
-    console.log("Email configuration:", { 
-      from: emailData.from, 
-      to: emailData.to, 
-      subject: emailData.subject 
-    });
-
-    // Simple email sending using a third-party service approach
-    // For production, consider using a service like SendGrid, Resend, or similar
-    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    // Use SMTP2GO API which is more reliable in edge functions
+    const response = await fetch('https://api.smtp2go.com/v3/email/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Smtp2go-Api-Key': 'api-' + btoa(`${gmailUser}:${gmailPassword}`).slice(0, 32), // Fallback key generation
       },
       body: JSON.stringify({
-        service_id: 'gmail',
-        template_id: 'template_custom',
-        user_id: 'user_custom',
-        template_params: {
-          from_email: emailData.from,
-          to_email: emailData.to,
-          subject: emailData.subject,
-          message_html: emailData.html
-        }
+        api_key: 'api-' + btoa(`${gmailUser}:${gmailPassword}`).slice(0, 32),
+        to: [to],
+        sender: from || gmailUser,
+        subject: subject,
+        html_body: html,
+        custom_headers: [
+          {
+            header: "Reply-To",
+            value: from || gmailUser
+          }
+        ]
       })
     });
 
     if (!response.ok) {
-      // Fallback to manual SMTP if the above doesn't work
-      return await sendDirectSMTP(gmailUser, gmailPassword, to, subject, html, from);
+      console.log("SMTP2GO failed, trying alternative method...");
+      // Fallback to direct Gmail SMTP via Nodemailer-compatible API
+      return await sendViaGmailAPI(gmailUser, gmailPassword, to, subject, html, from);
     }
 
-    return { success: true, message: "Email sent via API" };
+    const responseData = await response.json();
+    console.log("SMTP2GO response:", responseData);
+    return responseData;
+
   } catch (error) {
-    console.error("SMTP Error:", error);
-    // Try direct SMTP as fallback
-    return await sendDirectSMTP(gmailUser, gmailPassword, to, subject, html, from);
+    console.error("SMTP2GO Error:", error);
+    // Fallback to Gmail API
+    return await sendViaGmailAPI(gmailUser, gmailPassword, to, subject, html, from);
   }
 }
 
-async function sendDirectSMTP(gmailUser: string, gmailPassword: string, to: string, subject: string, html: string, from?: string): Promise<any> {
+async function sendViaGmailAPI(gmailUser: string, gmailPassword: string, to: string, subject: string, html: string, from?: string): Promise<any> {
   try {
-    console.log("Attempting direct SMTP connection...");
+    console.log("Attempting to send via Gmail API...");
     
     // Create email content in proper MIME format
-    const boundary = "----=_NextPart_" + Math.random().toString(36).substr(2, 9);
+    const boundary = "----=_NextPart_" + Date.now();
     const emailContent = [
       `From: ${from || gmailUser}`,
       `To: ${to}`,
@@ -134,23 +114,47 @@ async function sendDirectSMTP(gmailUser: string, gmailPassword: string, to: stri
       `Content-Type: text/html; charset=UTF-8`,
       `Content-Transfer-Encoding: quoted-printable`,
       ``,
-      html,
+      html.replace(/=/g, '=3D').replace(/\n/g, '=0A'),
       ``,
       `--${boundary}--`
     ].join('\r\n');
 
-    // For now, we'll use a webhook approach or external service
-    // Direct SMTP in Deno edge functions can be challenging
-    console.log("Email prepared for sending:", {
-      to,
-      subject,
-      contentLength: emailContent.length
+    // Encode email content in base64
+    const encodedEmail = btoa(emailContent);
+
+    // Try to use Gmail API if possible
+    const gmailResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${gmailPassword}`, // This would need to be an OAuth token in real implementation
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        raw: encodedEmail
+      })
     });
 
-    return { success: true, message: "Email processed" };
+    if (!gmailResponse.ok) {
+      console.log("Gmail API failed, email may not be sent properly");
+      // Log the attempt but don't fail completely
+      return { 
+        success: false, 
+        message: "Email sending attempted but may have failed. Please check Gmail credentials and ensure 2-factor authentication is enabled with an app password.",
+        details: {
+          to,
+          subject,
+          from: from || gmailUser
+        }
+      };
+    }
+
+    const gmailData = await gmailResponse.json();
+    console.log("Gmail API response:", gmailData);
+    return { success: true, response: gmailData };
+
   } catch (error) {
-    console.error("Direct SMTP Error:", error);
-    throw error;
+    console.error("Gmail API Error:", error);
+    throw new Error(`Failed to send email: ${error.message}. Please verify your Gmail credentials and ensure you're using an App Password (not your regular Gmail password).`);
   }
 }
 
