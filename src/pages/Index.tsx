@@ -558,7 +558,7 @@ const Index = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <img 
-                src="/lovable-uploads/cc7dfcca-5750-4f88-9b73-4693e619e400.png" 
+                src="/logo.png" 
                 alt="Anna University" 
                 className="h-10 w-10 mr-3"
               />
@@ -641,7 +641,7 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex items-center justify-center mb-4">
             <img 
-              src="/lovable-uploads/cc7dfcca-5750-4f88-9b73-4693e619e400.png" 
+              src="/logo.png" 
               alt="Anna University" 
               className="h-8 w-8 mr-2"
             />
