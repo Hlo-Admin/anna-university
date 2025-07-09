@@ -681,7 +681,7 @@ const Index = () => {
             />
             <span className="text-xl font-bold">Anna University</span>
           </div>
-          <p className="text-gray-400">© 2024 Anna University. All rights reserved.</p>
+          <p className="text-gray-400">© 2025 Anna University. All rights reserved.</p>
         </div>
       </footer>
     </div>
