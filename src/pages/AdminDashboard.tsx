@@ -670,11 +670,11 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <AdminSidebar activeView={activeView} onViewChange={setActiveView} />
       
-      <div className="flex-1 lg:ml-0">
-        <div className="container mx-auto px-4 py-8 lg:pl-8">
+      <div className="lg:ml-64">
+        <div className="container mx-auto px-4 py-8">
           <div className="flex justify-between items-center mb-8 lg:ml-0 ml-16">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>

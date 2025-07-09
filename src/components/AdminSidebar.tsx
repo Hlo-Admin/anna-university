@@ -46,15 +46,15 @@ export const AdminSidebar = ({ activeView, onViewChange }: AdminSidebarProps) =>
 
       {/* Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
-        isMobileOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+        isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-gray-200">
+        <div className="flex flex-col h-full overflow-hidden">
+          <div className="p-6 border-b border-gray-200 flex-shrink-0">
             <h2 className="text-xl font-semibold text-gray-900">Admin Portal</h2>
           </div>
           
-          <nav className="flex-1 p-4">
+          <nav className="flex-1 p-4 overflow-y-auto">
             <ul className="space-y-2">
               {menuItems.map((item) => {
                 const Icon = item.icon;
