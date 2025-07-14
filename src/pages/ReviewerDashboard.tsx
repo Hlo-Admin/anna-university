@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import { SubmissionTypeFilter } from "@/components/SubmissionTypeFilter";
 import { supabase } from "@/integrations/supabase/client";
 import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
 import { FormSubmission } from "@/types/submission";
+import { sendEmail, createStudentStatusUpdateEmail, createStatusUpdateEmail } from "@/utils/emailService";
 
 const ReviewerDashboard = () => {
   const [assignedSubmissions, setAssignedSubmissions] = useState<FormSubmission[]>([]);
@@ -106,10 +106,49 @@ const ReviewerDashboard = () => {
 
       if (error) throw error;
 
+      // Send email to student about status update
+      try {
+        await sendEmail({
+          to: statusUpdateDialog.submission.email,
+          subject: `Paper Submission Update - ${statusUpdateDialog.submission.submission_id}`,
+          html: createStudentStatusUpdateEmail(
+            statusUpdateDialog.submission.author_name,
+            statusUpdateDialog.submission.paper_title,
+            statusUpdateDialog.newStatus,
+            statusUpdateDialog.submission.submission_id || '',
+            remarks
+          )
+        });
+        
+        console.log('Student notification email sent successfully');
+      } catch (emailError) {
+        console.error('Failed to send student notification email:', emailError);
+        // Don't block the status update if email fails
+      }
+
+      // Send email to admin/reviewer about status update
+      try {
+        await sendEmail({
+          to: 'admin@conference.com', // You might want to make this configurable
+          subject: `Status Update - ${statusUpdateDialog.submission.submission_id}`,
+          html: createStatusUpdateEmail(
+            currentUser.name || currentUser.username,
+            statusUpdateDialog.submission.paper_title,
+            statusUpdateDialog.newStatus,
+            statusUpdateDialog.submission.submission_id || ''
+          )
+        });
+        
+        console.log('Admin notification email sent successfully');
+      } catch (emailError) {
+        console.error('Failed to send admin notification email:', emailError);
+        // Don't block the status update if email fails
+      }
+
       loadAssignedSubmissions(currentUser.id);
       toast({
         title: "Status Updated",
-        description: `Submission ${statusUpdateDialog.submission.submission_id} status changed to ${statusUpdateDialog.newStatus}`,
+        description: `Submission ${statusUpdateDialog.submission.submission_id} status changed to ${statusUpdateDialog.newStatus}. Email notification sent to student.`,
       });
       
       setStatusUpdateDialog({ isOpen: false, submission: null, newStatus: "" });

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface FormSubmission {
   id: string;
+  submission_id: string | null;
   submission_type: string;
   author_name: string;
   co_author_name: string;
@@ -30,6 +30,7 @@ interface FormSubmission {
   document_url?: string;
   document_name?: string;
   status: string;
+  remarks?: string;
   assigned_to: string | null;
   submitted_at: string;
 }
@@ -175,7 +176,12 @@ const ReviewerSubmissions = () => {
                 <div key={submission.id} className="border rounded-lg p-6 bg-white shadow-sm">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {submission.submission_id}
+                        </Badge>
+                      </div>
                       <p className="text-gray-600">{submission.email}</p>
                       <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
                       <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
@@ -184,7 +190,9 @@ const ReviewerSubmissions = () => {
                       <Badge className={getStatusColor(submission.status)}>
                         {submission.status.toUpperCase()}
                       </Badge>
-                      <p className="text-xs text-gray-400 mt-2">{submission.submission_type}</p>
+                      <p className="text-xs text-gray-400 mt-2 capitalize">
+                        {submission.submission_type.replace('-', ' ')}
+                      </p>
                       <p className="text-xs text-gray-400">
                         Submitted: {new Date(submission.submitted_at).toLocaleDateString()}
                       </p>
@@ -195,6 +203,13 @@ const ReviewerSubmissions = () => {
                     <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
                     <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
                   </div>
+
+                  {submission.remarks && (
+                    <div className="mb-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Remarks:</h4>
+                      <p className="text-gray-700 bg-blue-50 p-3 rounded border-l-4 border-blue-400">{submission.remarks}</p>
+                    </div>
+                  )}
                   
                   <div className="flex items-center gap-2">
                     <Button

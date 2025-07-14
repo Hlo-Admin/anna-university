@@ -35,7 +35,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       const link = document.createElement('a');
       link.href = documentUrl;
       link.download = documentName;
-      link.target = '_self';
+      link.target = '_blank';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -49,28 +49,60 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const renderDocumentPreview = () => {
     const extension = getFileExtension(documentName);
     
+    console.log('Document URL:', documentUrl);
+    console.log('Document Name:', documentName);
+    console.log('File Extension:', extension);
+    
     if (extension === 'pdf') {
       return (
-        <iframe
-          src={documentUrl}
-          className="w-full h-[900px] border rounded"
-          title={documentName}
-        />
+        <div className="w-full h-[800px]">
+          <iframe
+            src={`${documentUrl}#view=FitH`}
+            className="w-full h-full border rounded"
+            title={documentName}
+            onError={(e) => {
+              console.error('PDF iframe error:', e);
+            }}
+          />
+        </div>
       );
-    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension)) {
       return (
-        <img
-          src={documentUrl}
-          alt={documentName}
-          className="max-w-full max-h-[900px] object-contain mx-auto"
-        />
+        <div className="flex justify-center items-center w-full h-[800px]">
+          <img
+            src={documentUrl}
+            alt={documentName}
+            className="max-w-full max-h-full object-contain"
+            onError={(e) => {
+              console.error('Image load error:', e);
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+        </div>
+      );
+    } else if (['doc', 'docx'].includes(extension)) {
+      return (
+        <div className="w-full h-[800px]">
+          <iframe
+            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentUrl)}`}
+            className="w-full h-full border rounded"
+            title={documentName}
+            onError={(e) => {
+              console.error('Document viewer error:', e);
+            }}
+          />
+        </div>
       );
     } else {
       return (
-        <div className="flex flex-col items-center justify-center h-[900px] text-gray-500">
+        <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
           <FileText className="h-16 w-16 mb-4" />
-          <p>Preview not available for this file type</p>
-          <p className="text-sm">{documentName}</p>
+          <p className="text-lg">Preview not available for this file type</p>
+          <p className="text-sm text-gray-400">{documentName}</p>
+          <Button onClick={() => window.open(documentUrl, '_blank')} variant="outline">
+            Open in New Tab
+          </Button>
         </div>
       );
     }
@@ -78,7 +110,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden">
         <DialogHeader>
           <div className="flex justify-between items-center">
             <div>
@@ -97,7 +129,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           </div>
         </DialogHeader>
         
-        <div className="mt-4">
+        <div className="overflow-auto max-h-[80vh]">
           {renderDocumentPreview()}
         </div>
       </DialogContent>
