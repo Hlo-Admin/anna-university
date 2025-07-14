@@ -11,29 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sendEmail, createRegistrationConfirmationEmail } from "@/utils/emailService";
 
-// Function to generate unique submission ID
-const generateUniqueId = async () => {
-  try {
-    // Get the count of existing submissions to generate next ID
-    const { count, error } = await supabase
-      .from('paper_submissions')
-      .select('*', { count: 'exact', head: true });
-    
-    if (error) {
-      console.error('Error getting submission count:', error);
-      // Fallback to timestamp-based ID if count fails
-      return `IEC${Date.now().toString().slice(-3)}`;
-    }
-    
-    const nextNumber = (count || 0) + 1;
-    return `IEC${nextNumber.toString().padStart(3, '0')}`;
-  } catch (error) {
-    console.error('Error generating unique ID:', error);
-    // Fallback to timestamp-based ID
-    return `IEC${Date.now().toString().slice(-3)}`;
-  }
-};
-
 const Index = () => {
   const [formData, setFormData] = useState({
     submissionType: "",
@@ -135,9 +112,6 @@ const Index = () => {
         throw new Error("No file selected");
       }
 
-      // Generate unique ID
-      const uniqueId = await generateUniqueId();
-
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${formData.authorName.replace(/\s/g, '_')}_${Date.now()}.${fileExt}`;
       const filePath = `uploads/${fileName}`;
@@ -152,10 +126,10 @@ const Index = () => {
 
       const documentUrl = `https://aztaqiacvdpjhzoeddls.supabase.co/storage/v1/object/public/documents/${filePath}`;
 
-      const { error: submissionError } = await supabase
+      // First, insert the submission with default UUID
+      const { data: submission, error: submissionError } = await supabase
         .from('paper_submissions')
         .insert({
-          id: uniqueId,
           submission_type: formData.submissionType,
           author_name: formData.authorName,
           co_author_name: formData.coAuthorName,
@@ -175,11 +149,27 @@ const Index = () => {
           document_name: selectedFile.name,
           status: 'pending',
           submitted_at: new Date().toISOString()
-        });
+        })
+        .select()
+        .single();
 
       if (submissionError) {
         throw submissionError;
       }
+
+      // Generate unique ID after successful submission
+      const { count, error: countError } = await supabase
+        .from('paper_submissions')
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) {
+        console.error('Error getting submission count:', countError);
+      }
+      
+      const nextNumber = (count || 0);
+      const uniqueId = `IEC${nextNumber.toString().padStart(3, '0')}`;
+
+      console.log(`Generated unique ID: ${uniqueId} for submission ${submission.id}`);
 
       // Send confirmation email to student
       try {
@@ -516,30 +506,6 @@ const Index = () => {
                     {errors.presentationMode && <p className="text-red-500 text-sm">{errors.presentationMode}</p>}
                   </div>
                 </div>
-
-                {/* Journal Publication Preferences - Hidden temporarily */}
-                {/* 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="journalPublication" className="text-sm font-medium text-gray-700">
-                      Journal Publication Preference <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={formData.journalPublication}
-                      onValueChange={(value) => handleSelectChange("journalPublication", value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select journal publication preference" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="yes">Yes</SelectItem>
-                        <SelectItem value="no">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {errors.journalPublication && <p className="text-red-500 text-sm">{errors.journalPublication}</p>}
-                  </div>
-                </div>
-                */}
 
                 {/* Message */}
                 <div className="space-y-2">
