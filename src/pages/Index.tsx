@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,29 @@ import { Upload, FileText, X, BookOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sendEmail, createRegistrationConfirmationEmail } from "@/utils/emailService";
+
+// Function to generate unique submission ID
+const generateUniqueId = async () => {
+  try {
+    // Get the count of existing submissions to generate next ID
+    const { count, error } = await supabase
+      .from('paper_submissions')
+      .select('*', { count: 'exact', head: true });
+    
+    if (error) {
+      console.error('Error getting submission count:', error);
+      // Fallback to timestamp-based ID if count fails
+      return `IEC${Date.now().toString().slice(-3)}`;
+    }
+    
+    const nextNumber = (count || 0) + 1;
+    return `IEC${nextNumber.toString().padStart(3, '0')}`;
+  } catch (error) {
+    console.error('Error generating unique ID:', error);
+    // Fallback to timestamp-based ID
+    return `IEC${Date.now().toString().slice(-3)}`;
+  }
+};
 
 const Index = () => {
   const [formData, setFormData] = useState({
@@ -68,6 +90,23 @@ const Index = () => {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files && event.target.files[0];
     if (file) {
+      // Check file format - only allow .doc and .docx
+      const allowedExtensions = ['.doc', '.docx'];
+      const fileName = file.name.toLowerCase();
+      const isValidFormat = allowedExtensions.some(ext => fileName.endsWith(ext));
+      
+      if (!isValidFormat) {
+        toast({
+          title: "Invalid File Format",
+          description: "Please upload only .doc or .docx files.",
+          variant: "destructive"
+        });
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        return;
+      }
+      
       setSelectedFile(file);
     }
   };
@@ -96,6 +135,9 @@ const Index = () => {
         throw new Error("No file selected");
       }
 
+      // Generate unique ID
+      const uniqueId = await generateUniqueId();
+
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${formData.authorName.replace(/\s/g, '_')}_${Date.now()}.${fileExt}`;
       const filePath = `uploads/${fileName}`;
@@ -113,6 +155,7 @@ const Index = () => {
       const { error: submissionError } = await supabase
         .from('paper_submissions')
         .insert({
+          id: uniqueId,
           submission_type: formData.submissionType,
           author_name: formData.authorName,
           co_author_name: formData.coAuthorName,
@@ -126,7 +169,7 @@ const Index = () => {
           designation: formData.designation,
           department: formData.department,
           presentation_mode: formData.presentationMode,
-          journal_publication: formData.journalPublication,
+          journal_publication: "no", // Default value since we're hiding this field
           message: formData.message,
           document_url: documentUrl,
           document_name: selectedFile.name,
@@ -159,7 +202,7 @@ const Index = () => {
 
       toast({
         title: "Success",
-        description: "Form submitted successfully! A confirmation email has been sent to your email address.",
+        description: `Form submitted successfully! Your submission ID is ${uniqueId}. A confirmation email has been sent to your email address.`,
       });
 
       setShowForm(false);
@@ -180,7 +223,7 @@ const Index = () => {
 
     if (!formData.submissionType) newErrors.submissionType = "Submission type is required";
     if (!formData.authorName.trim()) newErrors.authorName = "Author name is required";
-    // Co-author name is now optional - removed validation
+    // Co-author name is optional - no validation needed
     if (!formData.email.trim()) newErrors.email = "Email is required";
     if (!formData.phoneCountryCode) newErrors.phoneCountryCode = "Country code is required";
     if (!formData.phoneNumber.trim()) newErrors.phoneNumber = "Phone number is required";
@@ -189,7 +232,7 @@ const Index = () => {
     if (!formData.designation.trim()) newErrors.designation = "Designation is required";
     if (!formData.department.trim()) newErrors.department = "Department is required";
     if (!formData.presentationMode) newErrors.presentationMode = "Presentation mode is required";
-    if (!formData.journalPublication) newErrors.journalPublication = "Journal publication preference is required";
+    // Journal publication validation removed since field is hidden
     if (!selectedFile) newErrors.document = "Document upload is required";
 
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -258,7 +301,7 @@ const Index = () => {
                       <SelectValue placeholder="Select submission type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="abstract">Abstract</SelectItem>
+                      <SelectItem value="extended-abstract">Extended Abstract</SelectItem>
                       <SelectItem value="fullpaper">Full Paper</SelectItem>
                     </SelectContent>
                   </Select>
@@ -453,7 +496,7 @@ const Index = () => {
                 </div>
 
                 {/* Preferences */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="presentationMode" className="text-sm font-medium text-gray-700">
                       Preferred Presentation Mode <span className="text-red-500">*</span>
@@ -467,14 +510,16 @@ const Index = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="oral">Oral Presentation</SelectItem>
-                        <SelectItem value="poster">Poster Presentation</SelectItem>
                         <SelectItem value="virtual">Virtual Presentation</SelectItem>
-                        <SelectItem value="video">Video Presentation</SelectItem>
                       </SelectContent>
                     </Select>
                     {errors.presentationMode && <p className="text-red-500 text-sm">{errors.presentationMode}</p>}
                   </div>
+                </div>
 
+                {/* Journal Publication Preferences - Hidden temporarily */}
+                {/* 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="journalPublication" className="text-sm font-medium text-gray-700">
                       Journal Publication Preference <span className="text-red-500">*</span>
@@ -494,6 +539,7 @@ const Index = () => {
                     {errors.journalPublication && <p className="text-red-500 text-sm">{errors.journalPublication}</p>}
                   </div>
                 </div>
+                */}
 
                 {/* Message */}
                 <div className="space-y-2">
@@ -521,7 +567,7 @@ const Index = () => {
                       type="file"
                       id="document"
                       className="hidden"
-                      accept=".pdf,.doc,.docx"
+                      accept=".doc,.docx"
                       onChange={handleFileSelect}
                     />
                     <div className="space-y-2">
@@ -536,7 +582,7 @@ const Index = () => {
                         </button>
                         <p className="text-gray-500">or drag and drop</p>
                       </div>
-                      <p className="text-xs text-gray-400">PDF, DOC, DOCX up to 10MB</p>
+                      <p className="text-xs text-gray-400">DOC, DOCX up to 10MB</p>
                     </div>
                     
                     {selectedFile && (
