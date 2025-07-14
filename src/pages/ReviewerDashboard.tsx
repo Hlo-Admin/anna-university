@@ -9,38 +9,17 @@ import { useToast } from "@/hooks/use-toast";
 import { LogOut, FileText, Eye } from "lucide-react";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { ReviewerSidebar } from "@/components/ReviewerSidebar";
-import { StatusUpdateDialog } from "@/components/StatusUpdateDialog";
+import { ReviewerStatusUpdate } from "@/components/ReviewerStatusUpdate";
+import { SubmissionTypeFilter } from "@/components/SubmissionTypeFilter";
 import { supabase } from "@/integrations/supabase/client";
 import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
-
-interface FormSubmission {
-  id: string;
-  submission_type: string;
-  author_name: string;
-  co_author_name: string;
-  email: string;
-  phone_country_code: string;
-  phone_number: string;
-  whatsapp_country_code?: string;
-  whatsapp_number?: string;
-  paper_title: string;
-  institution: string;
-  designation: string;
-  department: string;
-  presentation_mode: string;
-  journal_publication: string;
-  message?: string;
-  document_url?: string;
-  document_name?: string;
-  status: string;
-  assigned_to: string | null;
-  submitted_at: string;
-}
+import { FormSubmission } from "@/types/submission";
 
 const ReviewerDashboard = () => {
   const [assignedSubmissions, setAssignedSubmissions] = useState<FormSubmission[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeView, setActiveView] = useState("dashboard");
+  const [submissionTypeFilter, setSubmissionTypeFilter] = useState("all");
   const [documentViewer, setDocumentViewer] = useState<{
     isOpen: boolean;
     documentUrl: string;
@@ -112,7 +91,7 @@ const ReviewerDashboard = () => {
     });
   };
 
-  const confirmStatusUpdate = async () => {
+  const confirmStatusUpdate = async (remarks: string) => {
     if (!statusUpdateDialog.submission) return;
 
     try {
@@ -120,6 +99,7 @@ const ReviewerDashboard = () => {
         .from('paper_submissions')
         .update({ 
           status: statusUpdateDialog.newStatus,
+          remarks: remarks || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', statusUpdateDialog.submission.id);
@@ -129,7 +109,7 @@ const ReviewerDashboard = () => {
       loadAssignedSubmissions(currentUser.id);
       toast({
         title: "Status Updated",
-        description: `Submission status changed to ${statusUpdateDialog.newStatus}`,
+        description: `Submission ${statusUpdateDialog.submission.submission_id} status changed to ${statusUpdateDialog.newStatus}`,
       });
       
       setStatusUpdateDialog({ isOpen: false, submission: null, newStatus: "" });
@@ -168,15 +148,23 @@ const ReviewerDashboard = () => {
   };
 
   const getFilteredSubmissions = () => {
+    let filtered = assignedSubmissions;
+    
+    // Filter by submission type
+    if (submissionTypeFilter !== "all") {
+      filtered = filtered.filter(s => s.submission_type === submissionTypeFilter);
+    }
+    
+    // Filter by view
     switch (activeView) {
       case "assigned":
-        return assignedSubmissions.filter(s => s.status === "assigned");
+        return filtered.filter(s => s.status === "assigned");
       case "selected":
-        return assignedSubmissions.filter(s => s.status === "selected");
+        return filtered.filter(s => s.status === "selected");
       case "rejected":
-        return assignedSubmissions.filter(s => s.status === "rejected");
+        return filtered.filter(s => s.status === "rejected");
       default:
-        return assignedSubmissions;
+        return filtered;
     }
   };
 
@@ -184,8 +172,16 @@ const ReviewerDashboard = () => {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>Review and update the status of paper submissions</CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>{title}</CardTitle>
+              <CardDescription>Review and update the status of paper submissions</CardDescription>
+            </div>
+            <SubmissionTypeFilter
+              value={submissionTypeFilter}
+              onChange={setSubmissionTypeFilter}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
@@ -193,7 +189,12 @@ const ReviewerDashboard = () => {
               <div key={submission.id} className="border rounded-lg p-6 bg-white shadow-sm">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                      <Badge variant="outline" className="font-mono text-xs">
+                        {submission.submission_id}
+                      </Badge>
+                    </div>
                     <p className="text-gray-600">{submission.email}</p>
                     <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
                     <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
@@ -202,7 +203,9 @@ const ReviewerDashboard = () => {
                     <Badge className={getStatusColor(submission.status)}>
                       {submission.status.toUpperCase()}
                     </Badge>
-                    <p className="text-xs text-gray-400 mt-2">{submission.submission_type}</p>
+                    <p className="text-xs text-gray-400 mt-2 capitalize">
+                      {submission.submission_type.replace('-', ' ')}
+                    </p>
                   </div>
                 </div>
                 
@@ -210,6 +213,13 @@ const ReviewerDashboard = () => {
                   <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
                   <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
                 </div>
+
+                {submission.remarks && (
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Remarks:</h4>
+                    <p className="text-gray-700 bg-blue-50 p-3 rounded border-l-4 border-blue-400">{submission.remarks}</p>
+                  </div>
+                )}
                 
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
@@ -256,8 +266,8 @@ const ReviewerDashboard = () => {
             {submissions.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No submissions found for this status.</p>
-                <p className="text-sm">Check back later or contact your administrator.</p>
+                <p>No submissions found for this filter.</p>
+                <p className="text-sm">Try adjusting your filters or check back later.</p>
               </div>
             )}
           </div>
@@ -271,8 +281,11 @@ const ReviewerDashboard = () => {
 
     switch (activeView) {
       case "dashboard":
+        const extendedAbstractCount = assignedSubmissions.filter(s => s.submission_type === "extended-abstract").length;
+        const fullPaperCount = assignedSubmissions.filter(s => s.submission_type === "fullpaper").length;
+        
         return (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Assigned</CardTitle>
@@ -285,12 +298,12 @@ const ReviewerDashboard = () => {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Assigned</CardTitle>
+                <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
                 <FileText className="h-4 w-4 text-blue-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{assignedSubmissions.filter(s => s.status === "assigned").length}</div>
-                <p className="text-xs text-muted-foreground">Pending review</p>
+                <p className="text-xs text-muted-foreground">Awaiting decision</p>
               </CardContent>
             </Card>
             <Card>
@@ -311,6 +324,26 @@ const ReviewerDashboard = () => {
               <CardContent>
                 <div className="text-2xl font-bold">{assignedSubmissions.filter(s => s.status === "rejected").length}</div>
                 <p className="text-xs text-muted-foreground">Declined papers</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Extended Abstract</CardTitle>
+                <FileText className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{extendedAbstractCount}</div>
+                <p className="text-xs text-muted-foreground">Abstract submissions</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Full Papers</CardTitle>
+                <FileText className="h-4 w-4 text-orange-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{fullPaperCount}</div>
+                <p className="text-xs text-muted-foreground">Full paper submissions</p>
               </CardContent>
             </Card>
           </div>
@@ -369,13 +402,14 @@ const ReviewerDashboard = () => {
         onViewDocument={openDocumentViewer}
       />
 
-      <StatusUpdateDialog
+      <ReviewerStatusUpdate
         isOpen={statusUpdateDialog.isOpen}
         onClose={() => setStatusUpdateDialog({ ...statusUpdateDialog, isOpen: false })}
         onConfirm={confirmStatusUpdate}
         currentStatus={statusUpdateDialog.submission?.status || ""}
         newStatus={statusUpdateDialog.newStatus}
         paperTitle={statusUpdateDialog.submission?.paper_title || ""}
+        submissionId={statusUpdateDialog.submission?.submission_id || ""}
       />
     </div>
   );

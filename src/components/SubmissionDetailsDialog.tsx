@@ -4,30 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Download, Eye, X } from "lucide-react";
-
-interface FormSubmission {
-  id: string;
-  submission_type: string;
-  author_name: string;
-  co_author_name: string;
-  email: string;
-  phone_country_code: string;
-  phone_number: string;
-  whatsapp_country_code?: string;
-  whatsapp_number?: string;
-  paper_title: string;
-  institution: string;
-  designation: string;
-  department: string;
-  presentation_mode: string;
-  journal_publication: string;
-  message?: string;
-  document_url?: string;
-  document_name?: string;
-  status: string;
-  assigned_to: string | null;
-  submitted_at: string;
-}
+import { FormSubmission } from "@/types/submission";
 
 interface SubmissionDetailsDialogProps {
   isOpen: boolean;
@@ -71,13 +48,18 @@ export const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = (
         <DialogHeader>
           <div className="flex justify-between items-start">
             <div>
-              <DialogTitle className="text-xl font-bold">Submission Details</DialogTitle>
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-3 mb-2">
+                <DialogTitle className="text-xl font-bold">Submission Details</DialogTitle>
+                <Badge variant="outline" className="font-mono text-sm">
+                  {submission.submission_id}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
                 <Badge className={getStatusColor(submission.status)}>
                   {submission.status.toUpperCase()}
                 </Badge>
-                <span className="text-sm text-gray-500">
-                  {submission.submission_type.charAt(0).toUpperCase() + submission.submission_type.slice(1)} Submission
+                <span className="text-sm text-gray-500 capitalize">
+                  {submission.submission_type.replace('-', ' ')} Submission
                 </span>
               </div>
             </div>
@@ -165,6 +147,14 @@ export const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = (
             </div>
           )}
 
+          {/* Reviewer Remarks */}
+          {submission.remarks && (
+            <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400">
+              <h3 className="font-semibold text-lg mb-3 text-blue-900">Reviewer Remarks</h3>
+              <p className="bg-white p-3 rounded border text-blue-800">{submission.remarks}</p>
+            </div>
+          )}
+
           {/* Document */}
           {submission.document_url && submission.document_name && (
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -203,7 +193,7 @@ export const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = (
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Submission ID</label>
-                <p className="font-medium font-mono text-sm">{submission.id}</p>
+                <p className="font-medium font-mono text-sm">{submission.submission_id}</p>
               </div>
             </div>
           </div>

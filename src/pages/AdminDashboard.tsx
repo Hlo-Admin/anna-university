@@ -5,38 +5,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, User, LogOut, Plus, FileText, Download, Eye, Edit, UserX } from "lucide-react";
+import { Users, User, LogOut, Plus, FileText, Eye, Edit, UserX } from "lucide-react";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { CreateReviewerDialog } from "@/components/CreateReviewerDialog";
 import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
 import { StatusUpdateDialog } from "@/components/StatusUpdateDialog";
 import { AssignReviewerDialog } from "@/components/AssignReviewerDialog";
+import { SubmissionTypeFilter } from "@/components/SubmissionTypeFilter";
 import { supabase } from "@/integrations/supabase/client";
-
-interface FormSubmission {
-  id: string;
-  submission_type: string;
-  author_name: string;
-  co_author_name: string;
-  email: string;
-  phone_country_code: string;
-  phone_number: string;
-  whatsapp_country_code?: string;
-  whatsapp_number?: string;
-  paper_title: string;
-  institution: string;
-  designation: string;
-  department: string;
-  presentation_mode: string;
-  journal_publication: string;
-  message?: string;
-  document_url?: string;
-  document_name?: string;
-  status: string;
-  assigned_to: string | null;
-  submitted_at: string;
-}
+import { FormSubmission } from "@/types/submission";
 
 interface ReviewerUser {
   id: string;
@@ -54,6 +32,7 @@ const AdminDashboard = () => {
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
   const [reviewers, setReviewers] = useState<ReviewerUser[]>([]);
   const [activeView, setActiveView] = useState("dashboard");
+  const [submissionTypeFilter, setSubmissionTypeFilter] = useState("all");
   const [showCreateReviewer, setShowCreateReviewer] = useState(false);
   const [documentViewer, setDocumentViewer] = useState<{
     isOpen: boolean;
@@ -187,24 +166,25 @@ const AdminDashboard = () => {
           const emailHtml = createAssignmentEmail(
             reviewer.name,
             submission.paper_title,
-            submission.author_name
+            submission.author_name,
+            submission.submission_id
           );
           
           await sendEmail({
             to: reviewer.email,
-            subject: `New Paper Assignment: ${submission.paper_title}`,
+            subject: `New Paper Assignment: ${submission.submission_id} - ${submission.paper_title}`,
             html: emailHtml
           });
           
           toast({
             title: "Assignment Updated",
-            description: "Form has been assigned to reviewer and email notification sent",
+            description: `Submission ${submission.submission_id} has been assigned to reviewer and email notification sent`,
           });
         } catch (emailError: any) {
           console.error("Email sending failed:", emailError);
           toast({
             title: "Assignment Updated",
-            description: "Form has been assigned to reviewer, but email notification failed",
+            description: `Submission ${submission.submission_id} has been assigned to reviewer, but email notification failed`,
             variant: "destructive"
           });
         }
@@ -245,24 +225,25 @@ const AdminDashboard = () => {
           const emailHtml = createAssignmentEmail(
             reviewer.name,
             submission.paper_title,
-            submission.author_name
+            submission.author_name,
+            submission.submission_id
           );
           
           await sendEmail({
             to: reviewer.email,
-            subject: `New Paper Assignment: ${submission.paper_title}`,
+            subject: `New Paper Assignment: ${submission.submission_id} - ${submission.paper_title}`,
             html: emailHtml
           });
           
           toast({
             title: "Assignment Updated",
-            description: "Form has been assigned to reviewer and email notification sent",
+            description: `Submission ${submission.submission_id} has been assigned to reviewer and email notification sent`,
           });
         } catch (emailError: any) {
           console.error("Email sending failed:", emailError);
           toast({
             title: "Assignment Updated",
-            description: "Form has been assigned to reviewer, but email notification failed",
+            description: `Submission ${submission.submission_id} has been assigned to reviewer, but email notification failed`,
             variant: "destructive"
           });
         }
@@ -303,7 +284,7 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      // Get submission details for student email
+      // Get submission details for email
       const submission = submissions.find(s => s.id === statusUpdate.submissionId);
       
       // Send status update email to reviewer (existing logic)
@@ -315,12 +296,13 @@ const AdminDashboard = () => {
             const emailHtml = createStatusUpdateEmail(
               reviewer.name,
               submission.paper_title,
-              statusUpdate.newStatus
+              statusUpdate.newStatus,
+              submission.submission_id
             );
             
             await sendEmail({
               to: reviewer.email,
-              subject: `Status Update: ${submission.paper_title}`,
+              subject: `Status Update: ${submission.submission_id} - ${submission.paper_title}`,
               html: emailHtml
             });
           } catch (emailError: any) {
@@ -336,30 +318,32 @@ const AdminDashboard = () => {
           const emailHtml = createStudentStatusUpdateEmail(
             submission.author_name,
             submission.paper_title,
-            statusUpdate.newStatus
+            statusUpdate.newStatus,
+            submission.submission_id,
+            submission.remarks
           );
           
           await sendEmail({
             to: submission.email,
-            subject: `Paper Review Update: ${submission.paper_title}`,
+            subject: `Paper Review Update: ${submission.submission_id} - ${submission.paper_title}`,
             html: emailHtml
           });
 
           toast({
             title: "Status Updated",
-            description: `Submission status changed to ${statusUpdate.newStatus} and email notifications sent to both reviewer and student`,
+            description: `Submission ${submission.submission_id} status changed to ${statusUpdate.newStatus} and email notifications sent`,
           });
         } catch (emailError: any) {
           console.error("Email to student failed:", emailError);
           toast({
             title: "Status Updated",
-            description: `Submission status changed to ${statusUpdate.newStatus} and email notification sent to reviewer`,
+            description: `Submission ${submission.submission_id} status changed to ${statusUpdate.newStatus} and email notification sent to reviewer`,
           });
         }
       } else {
         toast({
           title: "Status Updated",
-          description: `Submission status changed to ${statusUpdate.newStatus} and email notification sent to reviewer`,
+          description: `Submission ${submission.submission_id} status changed to ${statusUpdate.newStatus}`,
         });
       }
 
@@ -423,27 +407,42 @@ const AdminDashboard = () => {
   };
 
   const getFilteredSubmissions = () => {
+    let filtered = submissions;
+    
+    // Filter by submission type
+    if (submissionTypeFilter !== "all") {
+      filtered = filtered.filter(s => s.submission_type === submissionTypeFilter);
+    }
+    
+    // Filter by view
     switch (activeView) {
       case "unassigned":
-        return submissions.filter(s => s.assigned_to === null || s.status === "pending");
+        return filtered.filter(s => s.assigned_to === null || s.status === "pending");
       case "assigned":
-        return submissions.filter(s => s.status === "assigned");
+        return filtered.filter(s => s.status === "assigned");
       case "selected":
-        return submissions.filter(s => s.status === "selected");
+        return filtered.filter(s => s.status === "selected");
       case "rejected":
-        return submissions.filter(s => s.status === "rejected");
+        return filtered.filter(s => s.status === "rejected");
       case "all-data":
       default:
-        return submissions;
+        return filtered;
     }
   };
 
   const renderContent = () => {
     switch (activeView) {
       case "dashboard":
+        const extendedAbstractCount = submissions.filter(s => s.submission_type === "extended-abstract").length;
+        const fullPaperCount = submissions.filter(s => s.submission_type === "fullpaper").length;
+        const pendingCount = submissions.filter(s => s.status === "pending").length;
+        const assignedCount = submissions.filter(s => s.status === "assigned").length;
+        const selectedCount = submissions.filter(s => s.status === "selected").length;
+        const rejectedCount = submissions.filter(s => s.status === "rejected").length;
+        
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Submissions</CardTitle>
@@ -451,6 +450,7 @@ const AdminDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{submissions.length}</div>
+                  <p className="text-xs text-muted-foreground">All paper submissions</p>
                 </CardContent>
               </Card>
               
@@ -461,30 +461,73 @@ const AdminDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{reviewers.filter(r => r.is_active !== false).length}</div>
+                  <p className="text-xs text-muted-foreground">Available for assignments</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Extended Abstract</CardTitle>
+                  <FileText className="h-4 w-4 text-purple-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {submissions.filter(s => s.status === "pending").length}
-                  </div>
+                  <div className="text-2xl font-bold">{extendedAbstractCount}</div>
+                  <p className="text-xs text-muted-foreground">Abstract submissions</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Full Papers</CardTitle>
+                  <FileText className="h-4 w-4 text-orange-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{fullPaperCount}</div>
+                  <p className="text-xs text-muted-foreground">Full paper submissions</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                  <FileText className="h-4 w-4 text-yellow-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{pendingCount}</div>
+                  <p className="text-xs text-muted-foreground">Awaiting assignment</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Under Review</CardTitle>
+                  <FileText className="h-4 w-4 text-blue-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{assignedCount}</div>
+                  <p className="text-xs text-muted-foreground">Currently being reviewed</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Selected</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <FileText className="h-4 w-4 text-green-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    {submissions.filter(s => s.status === "selected").length}
-                  </div>
+                  <div className="text-2xl font-bold">{selectedCount}</div>
+                  <p className="text-xs text-muted-foreground">Approved for conference</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+                  <FileText className="h-4 w-4 text-red-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{rejectedCount}</div>
+                  <p className="text-xs text-muted-foreground">Not selected</p>
                 </CardContent>
               </Card>
             </div>
@@ -566,14 +609,22 @@ const AdminDashboard = () => {
         return (
           <Card>
             <CardHeader>
-              <CardTitle>
-                {activeView === "all-data" ? "All Paper Submissions" :
-                 activeView === "unassigned" ? "Unassigned Submissions" :
-                 activeView === "assigned" ? "Assigned Submissions" :
-                 activeView === "selected" ? "Selected Submissions" :
-                 activeView === "rejected" ? "Rejected Submissions" : "Paper Submissions"}
-              </CardTitle>
-              <CardDescription>Review and manage paper submissions</CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>
+                    {activeView === "all-data" ? "All Paper Submissions" :
+                     activeView === "unassigned" ? "Unassigned Submissions" :
+                     activeView === "assigned" ? "Assigned Submissions" :
+                     activeView === "selected" ? "Selected Submissions" :
+                     activeView === "rejected" ? "Rejected Submissions" : "Paper Submissions"}
+                  </CardTitle>
+                  <CardDescription>Review and manage paper submissions</CardDescription>
+                </div>
+                <SubmissionTypeFilter
+                  value={submissionTypeFilter}
+                  onChange={setSubmissionTypeFilter}
+                />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -581,7 +632,12 @@ const AdminDashboard = () => {
                   <div key={submission.id} className="border rounded-lg p-6">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {submission.submission_id}
+                          </Badge>
+                        </div>
                         <p className="text-gray-600">{submission.email}</p>
                         <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
                         <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
@@ -590,7 +646,9 @@ const AdminDashboard = () => {
                         <Badge className={getStatusColor(submission.status)}>
                           {submission.status.toUpperCase()}
                         </Badge>
-                        <p className="text-xs text-gray-400 mt-2">{submission.submission_type}</p>
+                        <p className="text-xs text-gray-400 mt-2 capitalize">
+                          {submission.submission_type.replace('-', ' ')}
+                        </p>
                       </div>
                     </div>
                     
@@ -598,6 +656,13 @@ const AdminDashboard = () => {
                       <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
                       <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
                     </div>
+
+                    {submission.remarks && (
+                      <div className="mb-4">
+                        <h4 className="font-medium text-gray-900 mb-2">Reviewer Remarks:</h4>
+                        <p className="text-gray-700 bg-blue-50 p-3 rounded border-l-4 border-blue-400">{submission.remarks}</p>
+                      </div>
+                    )}
                     
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
@@ -659,7 +724,7 @@ const AdminDashboard = () => {
                 
                 {getFilteredSubmissions().length === 0 && (
                   <div className="text-center py-8 text-gray-500">
-                    No submissions found for this view.
+                    No submissions found for this view and filter combination.
                   </div>
                 )}
               </div>

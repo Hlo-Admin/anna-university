@@ -1,322 +1,239 @@
-import { supabase } from "@/integrations/supabase/client";
 
-interface SendEmailParams {
+const GMAIL_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL || 'https://aztaqiacvdpjhzoeddls.supabase.co'}/functions/v1/send-gmail`;
+
+interface EmailData {
   to: string;
   subject: string;
   html: string;
-  from?: string;
 }
 
-export const sendEmail = async ({ to, subject, html, from }: SendEmailParams) => {
+export const sendEmail = async (emailData: EmailData) => {
   try {
-    console.log("Sending email via Supabase function...", { to, subject });
-    
-    const { data, error } = await supabase.functions.invoke('send-gmail', {
-      body: {
-        to,
-        subject,
-        html,
-        from
-      }
+    const response = await fetch(GMAIL_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(emailData),
     });
 
-    if (error) {
-      console.error('Email sending error details:', error);
-      throw new Error(`Failed to send email: ${error.message || 'Unknown error'}`);
+    if (!response.ok) {
+      throw new Error(`Email sending failed: ${response.statusText}`);
     }
 
-    console.log('Email sent successfully:', data);
-    return data;
-  } catch (error: any) {
-    console.error('Failed to send email:', error);
-    throw new Error(`Email service error: ${error.message || 'Unknown error'}`);
+    return await response.json();
+  } catch (error) {
+    console.error('Error sending email:', error);
+    throw error;
   }
 };
 
-// Enhanced email templates with better formatting
-export const createStatusUpdateEmail = (reviewerName: string, paperTitle: string, newStatus: string) => {
-  const statusColors = {
-    'assigned': '#2563eb',
-    'selected': '#059669',
-    'rejected': '#dc2626',
-    'pending': '#d97706'
-  };
-
-  const statusColor = statusColors[newStatus as keyof typeof statusColors] || '#6b7280';
-
+export const createSubmissionConfirmationEmail = (authorName: string, paperTitle: string, submissionId: string) => {
   return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Paper Status Update</title>
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: Arial, sans-serif;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 0;">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Paper Status Update</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Dear ${reviewerName},</p>
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">The status of your assigned paper has been updated:</p>
-          
-          <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid ${statusColor};">
-            <h2 style="margin: 0 0 15px 0; color: #1f2937; font-size: 20px;">${paperTitle}</h2>
-            <p style="margin: 0; font-size: 16px;">
-              <strong>New Status:</strong> 
-              <span style="color: ${statusColor}; font-weight: bold; text-transform: uppercase; background-color: rgba(37, 99, 235, 0.1); padding: 4px 8px; border-radius: 4px;">
-                ${newStatus}
-              </span>
-            </p>
-          </div>
-          
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">Please log in to your reviewer dashboard for more details and to take any necessary actions.</p>
-          
-          <div style="text-align: center; margin: 40px 0;">
-            <a href="#" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-              Open Dashboard
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Admin Team</strong></p>
-        </div>
+    <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">Paper Submission Confirmed</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your submission has been successfully received</p>
       </div>
-    </body>
-    </html>
-  `;
-};
-
-export const createAssignmentEmail = (reviewerName: string, paperTitle: string, authorName: string) => {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>New Paper Assignment</title>
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: Arial, sans-serif;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 0;">
-        <div style="background-color: #059669; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">New Paper Assignment</h1>
+      
+      <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #4a5568; margin-top: 0;">Hello ${authorName},</h2>
+          <p style="color: #666; font-size: 16px;">Thank you for submitting your paper to our conference. We have successfully received your submission and it's now under review.</p>
         </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Dear ${reviewerName},</p>
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">A new paper has been assigned to you for review:</p>
-          
-          <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #059669;">
-            <h2 style="margin: 0 0 15px 0; color: #1f2937; font-size: 20px;">${paperTitle}</h2>
-            <p style="margin: 0; font-size: 16px; color: #374151;">
-              <strong>Author:</strong> ${authorName}
-            </p>
-          </div>
-          
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">Please log in to your reviewer dashboard to view the paper details and begin your review process.</p>
-          
-          <div style="text-align: center; margin: 40px 0;">
-            <a href="#" style="background-color: #059669; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-              Start Review
-            </a>
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">Submission Details</h3>
+          <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce;">
+            <p style="margin: 0 0 10px 0;"><strong>Submission ID:</strong> <span style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${submissionId}</span></p>
+            <p style="margin: 0;"><strong>Paper Title:</strong> ${paperTitle}</p>
           </div>
         </div>
-        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Admin Team</strong></p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-};
-
-// New email template for student registration confirmation
-export const createRegistrationConfirmationEmail = (studentName: string, paperTitle: string) => {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Registration Confirmation</title>
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: Arial, sans-serif;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 0;">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <img src="https://your-domain.com/logo.png" alt="Anna University" style="height: 50px; margin-bottom: 15px;" />
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Thank You for Your Submission!</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Dear ${studentName},</p>
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">Thank you for submitting your paper for review. We have successfully received your submission:</p>
-          
-          <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #2563eb;">
-            <h2 style="margin: 0 0 15px 0; color: #1f2937; font-size: 20px;">${paperTitle}</h2>
-            <p style="margin: 0; font-size: 16px; color: #374151;">
-              <strong>Status:</strong> 
-              <span style="color: #d97706; font-weight: bold; text-transform: uppercase; background-color: rgba(217, 119, 6, 0.1); padding: 4px 8px; border-radius: 4px;">
-                Under Review
-              </span>
-            </p>
-          </div>
-          
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Your paper is now under review by our editorial team. Here's what happens next:</p>
-          
-          <ul style="font-size: 16px; color: #374151; margin-bottom: 30px; padding-left: 20px;">
-            <li style="margin-bottom: 10px;">Our team will review your submission for completeness and quality</li>
-            <li style="margin-bottom: 10px;">Your paper will be assigned to relevant reviewers</li>
-            <li style="margin-bottom: 10px;">You will receive updates on the review status via email</li>
-            <li>The review process typically takes 2-4 weeks</li>
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">What's Next?</h3>
+          <ul style="color: #666; padding-left: 20px;">
+            <li>Your paper will be assigned to a reviewer</li>
+            <li>The review process typically takes 2-3 weeks</li>
+            <li>You'll receive email updates about the status of your submission</li>
+            <li>Please keep your submission ID for future reference</li>
           </ul>
-          
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">If you have any questions or need to make any updates to your submission, please contact us immediately.</p>
         </div>
-        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Anna University Editorial Team</strong></p>
-          <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">This is an automated message. Please do not reply to this email.</p>
+        
+        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107;">
+          <p style="margin: 0; color: #856404;"><strong>Important:</strong> Please save your submission ID (${submissionId}) as you'll need it for any future correspondence regarding your paper.</p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <p style="color: #666; margin: 0;">If you have any questions, please don't hesitate to contact us.</p>
+          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
         </div>
       </div>
-    </body>
-    </html>
+    </div>
   `;
 };
 
-// New email template for reviewer account creation
-export const createReviewerCredentialsEmail = (reviewerName: string, username: string, password: string) => {
+export const createAssignmentEmail = (reviewerName: string, paperTitle: string, authorName: string, submissionId: string) => {
   return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Your Reviewer Account</title>
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: Arial, sans-serif;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 0;">
-        <div style="background-color: #059669; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Welcome to the Review Panel</h1>
+    <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">New Paper Assignment</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">A new paper has been assigned for your review</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #4a5568; margin-top: 0;">Hello ${reviewerName},</h2>
+          <p style="color: #666; font-size: 16px;">A new paper has been assigned to you for review. Please log in to your reviewer dashboard to access the submission details and documents.</p>
         </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Dear ${reviewerName},</p>
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">Your reviewer account has been successfully created. You can now access the reviewer dashboard to review assigned papers.</p>
-          
-          <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #059669;">
-            <h3 style="margin: 0 0 15px 0; color: #1f2937; font-size: 18px;">Your Login Credentials</h3>
-            <p style="margin: 0 0 10px 0; font-size: 16px;">
-              <strong>Username:</strong> 
-              <span style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${username}</span>
-            </p>
-            <p style="margin: 0; font-size: 16px;">
-              <strong>Password:</strong> 
-              <span style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${password}</span>
-            </p>
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">Assignment Details</h3>
+          <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce;">
+            <p style="margin: 0 0 10px 0;"><strong>Submission ID:</strong> <span style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${submissionId}</span></p>
+            <p style="margin: 0 0 10px 0;"><strong>Paper Title:</strong> ${paperTitle}</p>
+            <p style="margin: 0;"><strong>Author:</strong> ${authorName}</p>
           </div>
-          
-          <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #f59e0b;">
-            <p style="margin: 0; font-size: 14px; color: #92400e;">
-              <strong>Security Notice:</strong> Please change your password after your first login for security purposes. Keep your credentials confidential and do not share them with anyone.
-            </p>
-          </div>
-          
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">As a reviewer, you will be able to:</p>
-          
-          <ul style="font-size: 16px; color: #374151; margin-bottom: 30px; padding-left: 20px;">
-            <li style="margin-bottom: 10px;">Access and review assigned papers</li>
-            <li style="margin-bottom: 10px;">Provide feedback and recommendations</li>
-            <li style="margin-bottom: 10px;">Track the status of your reviews</li>
-            <li>Communicate with the editorial team</li>
+        </div>
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">Review Guidelines</h3>
+          <ul style="color: #666; padding-left: 20px;">
+            <li>Please complete your review within 2 weeks</li>
+            <li>Access the full paper and submission details through your dashboard</li>
+            <li>Provide constructive feedback and remarks</li>
+            <li>Select or reject the paper based on quality and relevance</li>
           </ul>
-          
-          <div style="text-align: center; margin: 40px 0;">
-            <a href="#" style="background-color: #059669; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-              Access Reviewer Dashboard
-            </a>
-          </div>
         </div>
-        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Admin Team</strong></p>
-          <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">If you have any questions, please contact the administrator.</p>
+        
+        <div style="text-align: center; margin-top: 30px;">
+          <a href="#" style="background: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Access Reviewer Dashboard</a>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <p style="color: #666; margin: 0;">Thank you for your contribution to the review process.</p>
+          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
         </div>
       </div>
-    </body>
-    </html>
+    </div>
   `;
 };
 
-// New email template for student status updates
-export const createStudentStatusUpdateEmail = (studentName: string, paperTitle: string, newStatus: string) => {
-  const statusMessages = {
-    'selected': {
-      title: 'Congratulations! Your Paper Has Been Selected',
-      message: 'We are pleased to inform you that your paper has been selected for publication.',
-      color: '#059669',
-      actionText: 'View Publication Details'
-    },
-    'rejected': {
-      title: 'Paper Review Update',
-      message: 'After careful review, we regret to inform you that your paper has not been selected for publication at this time.',
-      color: '#dc2626',
-      actionText: 'Submit Another Paper'
-    }
-  };
-
-  const statusInfo = statusMessages[newStatus as keyof typeof statusMessages];
+export const createStatusUpdateEmail = (reviewerName: string, paperTitle: string, newStatus: string, submissionId: string) => {
+  const statusColor = newStatus === 'selected' ? '#10b981' : newStatus === 'rejected' ? '#ef4444' : '#3b82f6';
+  const statusText = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
   
   return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Paper Review Update</title>
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #f9fafb; font-family: Arial, sans-serif;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 0;">
-        <div style="background-color: ${statusInfo.color}; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${statusInfo.title}</h1>
+    <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">Status Update</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Paper submission status has been updated</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #4a5568; margin-top: 0;">Hello ${reviewerName},</h2>
+          <p style="color: #666; font-size: 16px;">The status of a paper submission has been updated in the system. Here are the details:</p>
         </div>
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Dear ${studentName},</p>
-          <p style="font-size: 16px; color: #374151; margin-bottom: 30px;">${statusInfo.message}</p>
-          
-          <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid ${statusInfo.color};">
-            <h2 style="margin: 0 0 15px 0; color: #1f2937; font-size: 20px;">${paperTitle}</h2>
-            <p style="margin: 0; font-size: 16px;">
-              <strong>Status:</strong> 
-              <span style="color: ${statusInfo.color}; font-weight: bold; text-transform: uppercase; background-color: rgba(37, 99, 235, 0.1); padding: 4px 8px; border-radius: 4px;">
-                ${newStatus}
-              </span>
-            </p>
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">Update Details</h3>
+          <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce;">
+            <p style="margin: 0 0 10px 0;"><strong>Submission ID:</strong> <span style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${submissionId}</span></p>
+            <p style="margin: 0 0 10px 0;"><strong>Paper Title:</strong> ${paperTitle}</p>
+            <p style="margin: 0;"><strong>New Status:</strong> <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span></p>
           </div>
-          
-          ${newStatus === 'selected' ? 
-            `<p style="font-size: 16px; color: #374151; margin-bottom: 30px;">We will contact you soon with further details regarding the publication process.</p>` :
-            `<p style="font-size: 16px; color: #374151; margin-bottom: 30px;">Thank you for your submission. We encourage you to consider submitting future work for review.</p>`
-          }
         </div>
-        <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0; color: #6b7280; font-size: 14px;">Best regards,<br><strong>Anna University Editorial Team</strong></p>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <p style="color: #666; margin: 0;">Thank you for your contribution to the review process.</p>
+          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
         </div>
       </div>
-    </body>
-    </html>
+    </div>
   `;
 };
 
-// Helper function to send emails with toast notifications
-export const sendEmailWithNotification = async (emailParams: SendEmailParams, toast: any) => {
-  try {
-    await sendEmail(emailParams);
-    toast({
-      title: "Email Sent",
-      description: `Email sent successfully to ${emailParams.to}`,
-    });
-  } catch (error: any) {
-    console.error("Email sending failed:", error);
-    toast({
-      title: "Email Failed",
-      description: error.message || "Failed to send email",
-      variant: "destructive",
-    });
-  }
+export const createStudentStatusUpdateEmail = (studentName: string, paperTitle: string, status: string, submissionId: string, remarks?: string) => {
+  const isSelected = status === 'selected';
+  const isRejected = status === 'rejected';
+  const statusColor = isSelected ? '#10b981' : isRejected ? '#ef4444' : '#3b82f6';
+  const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+  const headerColor = isSelected ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                     isRejected ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 
+                     'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+  
+  return `
+    <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="background: ${headerColor}; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">Paper Review Update</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your submission has been ${status}</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #4a5568; margin-top: 0;">Hello ${studentName},</h2>
+          <p style="color: #666; font-size: 16px;">
+            ${isSelected ? 
+              'Congratulations! Your paper has been selected for the conference.' : 
+              isRejected ? 
+              'Thank you for your submission. After careful review, we regret to inform you that your paper was not selected for this conference.' :
+              'Your paper submission status has been updated.'
+            }
+          </p>
+        </div>
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">Submission Details</h3>
+          <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce;">
+            <p style="margin: 0 0 10px 0;"><strong>Submission ID:</strong> <span style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${submissionId}</span></p>
+            <p style="margin: 0 0 10px 0;"><strong>Paper Title:</strong> ${paperTitle}</p>
+            <p style="margin: 0;"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span></p>
+          </div>
+        </div>
+        
+        ${remarks ? `
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">Reviewer Comments</h3>
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #6b7280;">
+            <p style="margin: 0; color: #374151;">${remarks}</p>
+          </div>
+        </div>
+        ` : ''}
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">
+            ${isSelected ? 'Next Steps' : isRejected ? 'Future Opportunities' : 'Information'}
+          </h3>
+          <ul style="color: #666; padding-left: 20px;">
+            ${isSelected ? `
+              <li>You will receive further instructions about conference registration</li>
+              <li>Please prepare your final presentation materials</li>
+              <li>Watch for updates about the conference schedule</li>
+              <li>Congratulations on your successful submission!</li>
+            ` : isRejected ? `
+              <li>We encourage you to consider our feedback for future submissions</li>
+              <li>Keep an eye out for future conference announcements</li>
+              <li>Continue your excellent research work</li>
+              <li>Thank you for your interest in our conference</li>
+            ` : `
+              <li>Your submission is being processed</li>
+              <li>You will receive updates as they become available</li>
+              <li>Please keep your submission ID for reference</li>
+            `}
+          </ul>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <p style="color: #666; margin: 0;">
+            ${isSelected ? 
+              'Congratulations once again, and we look forward to your participation!' : 
+              'Thank you for your submission and continued interest in our conference.'
+            }
+          </p>
+          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
+        </div>
+      </div>
+    </div>
+  `;
 };

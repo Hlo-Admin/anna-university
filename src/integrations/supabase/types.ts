@@ -32,7 +32,9 @@ export type Database = {
           phone_country_code: string
           phone_number: string
           presentation_mode: string
+          remarks: string | null
           status: string | null
+          submission_id: string | null
           submission_type: string
           submitted_at: string
           updated_at: string
@@ -56,7 +58,9 @@ export type Database = {
           phone_country_code: string
           phone_number: string
           presentation_mode: string
+          remarks?: string | null
           status?: string | null
+          submission_id?: string | null
           submission_type: string
           submitted_at?: string
           updated_at?: string
@@ -80,7 +84,9 @@ export type Database = {
           phone_country_code?: string
           phone_number?: string
           presentation_mode?: string
+          remarks?: string | null
           status?: string | null
+          submission_id?: string | null
           submission_type?: string
           submitted_at?: string
           updated_at?: string
@@ -138,7 +144,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_submission_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
