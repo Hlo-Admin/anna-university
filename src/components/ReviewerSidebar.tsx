@@ -6,10 +6,12 @@ import {
   CheckCircle,
   XCircle,
   Menu,
-  X
+  X,
+  Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 
 interface ReviewerSidebarProps {
   activeView: string;
@@ -18,6 +20,7 @@ interface ReviewerSidebarProps {
 
 export const ReviewerSidebar = ({ activeView, onViewChange }: ReviewerSidebarProps) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -27,6 +30,8 @@ export const ReviewerSidebar = ({ activeView, onViewChange }: ReviewerSidebarPro
   ];
 
   const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
+
+  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
 
   return (
     <>
@@ -73,6 +78,19 @@ export const ReviewerSidebar = ({ activeView, onViewChange }: ReviewerSidebarPro
               })}
             </ul>
           </nav>
+
+          {/* Bottom section with password change */}
+          <div className="p-4 border-t border-gray-200 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPasswordDialogOpen(true)}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <Lock className="h-4 w-4" />
+              Change Password
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -83,6 +101,13 @@ export const ReviewerSidebar = ({ activeView, onViewChange }: ReviewerSidebarPro
           onClick={() => setIsMobileOpen(false)}
         />
       )}
+
+      {/* Password change dialog */}
+      <ChangePasswordDialog
+        isOpen={isPasswordDialogOpen}
+        onClose={() => setIsPasswordDialogOpen(false)}
+        reviewerId={currentUser.id}
+      />
     </>
   );
 };

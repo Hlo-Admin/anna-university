@@ -10,6 +10,7 @@ import { DocumentViewer } from "@/components/DocumentViewer";
 import { ReviewerSidebar } from "@/components/ReviewerSidebar";
 import { ReviewerStatusUpdate } from "@/components/ReviewerStatusUpdate";
 import { SubmissionTypeFilter } from "@/components/SubmissionTypeFilter";
+import { SubmissionSearchFilter } from "@/components/SubmissionSearchFilter";
 import { supabase } from "@/integrations/supabase/client";
 import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
 import { FormSubmission } from "@/types/submission";
@@ -17,6 +18,7 @@ import { sendEmail, createStudentStatusUpdateEmail, createStatusUpdateEmail } fr
 
 const ReviewerDashboard = () => {
   const [assignedSubmissions, setAssignedSubmissions] = useState<FormSubmission[]>([]);
+  const [filteredSubmissions, setFilteredSubmissions] = useState<FormSubmission[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeView, setActiveView] = useState("dashboard");
   const [submissionTypeFilter, setSubmissionTypeFilter] = useState("all");
@@ -58,6 +60,10 @@ const ReviewerDashboard = () => {
     setCurrentUser(user);
     loadAssignedSubmissions(user.id);
   }, [navigate]);
+
+  useEffect(() => {
+    setFilteredSubmissions(assignedSubmissions);
+  }, [assignedSubmissions]);
 
   const loadAssignedSubmissions = async (reviewerId: string) => {
     try {
@@ -187,7 +193,7 @@ const ReviewerDashboard = () => {
   };
 
   const getFilteredSubmissions = () => {
-    let filtered = assignedSubmissions;
+    let filtered = filteredSubmissions;
     
     // Filter by submission type
     if (submissionTypeFilter !== "all") {
@@ -209,109 +215,117 @@ const ReviewerDashboard = () => {
 
   const renderSubmissionsList = (submissions: FormSubmission[], title: string) => {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>{title}</CardTitle>
-              <CardDescription>Review and update the status of paper submissions</CardDescription>
+      <div className="space-y-6">
+        <SubmissionSearchFilter
+          submissions={assignedSubmissions}
+          onFilteredResults={setFilteredSubmissions}
+          className="mb-6"
+        />
+        
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>Review and update the status of paper submissions</CardDescription>
+              </div>
+              <SubmissionTypeFilter
+                value={submissionTypeFilter}
+                onChange={setSubmissionTypeFilter}
+              />
             </div>
-            <SubmissionTypeFilter
-              value={submissionTypeFilter}
-              onChange={setSubmissionTypeFilter}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {submissions.map((submission) => (
-              <div key={submission.id} className="border rounded-lg p-6 bg-white shadow-sm">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-lg">{submission.author_name}</h3>
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {submission.submission_id}
-                      </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {submissions.map((submission) => (
+                <div key={submission.id} className="border rounded-lg p-6 bg-white shadow-sm">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {submission.submission_id}
+                        </Badge>
+                      </div>
+                      <p className="text-gray-600">{submission.email}</p>
+                      <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
+                      <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
                     </div>
-                    <p className="text-gray-600">{submission.email}</p>
-                    <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
-                    <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
+                    <div className="text-right">
+                      <Badge className={getStatusColor(submission.status)}>
+                        {submission.status.toUpperCase()}
+                      </Badge>
+                      <p className="text-xs text-gray-400 mt-2 capitalize">
+                        {submission.submission_type.replace('-', ' ')}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <Badge className={getStatusColor(submission.status)}>
-                      {submission.status.toUpperCase()}
-                    </Badge>
-                    <p className="text-xs text-gray-400 mt-2 capitalize">
-                      {submission.submission_type.replace('-', ' ')}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
-                  <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
-                </div>
-
-                {submission.remarks && (
+                  
                   <div className="mb-4">
-                    <h4 className="font-medium text-gray-900 mb-2">Remarks:</h4>
-                    <p className="text-gray-700 bg-blue-50 p-3 rounded border-l-4 border-blue-400">{submission.remarks}</p>
+                    <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
                   </div>
-                )}
-                
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openSubmissionDetails(submission)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View Details
-                    </Button>
-                    {submission.document_url && submission.document_name && (
+
+                  {submission.remarks && (
+                    <div className="mb-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Remarks:</h4>
+                      <p className="text-gray-700 bg-blue-50 p-3 rounded border-l-4 border-blue-400">{submission.remarks}</p>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
+                        onClick={() => openSubmissionDetails(submission)}
                       >
-                        <FileText className="h-4 w-4 mr-1" />
-                        View Document
+                        <Eye className="h-4 w-4 mr-1" />
+                        View Details
                       </Button>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Update Status:</span>
-                    <Select
-                      value={submission.status}
-                      onValueChange={(value) => handleStatusChange(submission, value)}
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="assigned">Assigned</SelectItem>
-                        <SelectItem value="selected">Selected</SelectItem>
-                        <SelectItem value="rejected">Rejected</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      {submission.document_url && submission.document_name && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          View Document
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Update Status:</span>
+                      <Select
+                        value={submission.status}
+                        onValueChange={(value) => handleStatusChange(submission, value)}
+                      >
+                        <SelectTrigger className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="assigned">Assigned</SelectItem>
+                          <SelectItem value="selected">Selected</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            
-            {submissions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No submissions found for this filter.</p>
-                <p className="text-sm">Try adjusting your filters or check back later.</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+              
+              {submissions.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No submissions found for this filter.</p>
+                  <p className="text-sm">Try adjusting your filters or check back later.</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   };
 
