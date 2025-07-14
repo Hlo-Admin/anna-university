@@ -1,7 +1,7 @@
 
 export interface FormSubmission {
   id: string;
-  submission_id: string;
+  submission_id?: string; // Make optional to handle cases where it might not be set
   submission_type: string;
   author_name: string;
   co_author_name: string;

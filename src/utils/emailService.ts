@@ -1,4 +1,3 @@
-
 const GMAIL_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL || 'https://aztaqiacvdpjhzoeddls.supabase.co'}/functions/v1/send-gmail`;
 
 interface EmailData {
@@ -26,6 +25,71 @@ export const sendEmail = async (emailData: EmailData) => {
     console.error('Error sending email:', error);
     throw error;
   }
+};
+
+export const createRegistrationConfirmationEmail = (authorName: string, paperTitle: string) => {
+  return `
+    <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">Registration Confirmed</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your paper has been successfully submitted</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #4a5568; margin-top: 0;">Hello ${authorName},</h2>
+          <p style="color: #666; font-size: 16px;">Thank you for registering and submitting your paper. We have successfully received your submission.</p>
+        </div>
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">Submission Details</h3>
+          <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce;">
+            <p style="margin: 0;"><strong>Paper Title:</strong> ${paperTitle}</p>
+          </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <p style="color: #666; margin: 0;">We will review your submission and get back to you soon.</p>
+          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+export const createReviewerCredentialsEmail = (reviewerName: string, username: string, password: string) => {
+  return `
+    <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">Reviewer Account Created</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your reviewer credentials</p>
+      </div>
+      
+      <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #4a5568; margin-top: 0;">Hello ${reviewerName},</h2>
+          <p style="color: #666; font-size: 16px;">Your reviewer account has been created successfully. Please use the credentials below to log in to the system.</p>
+        </div>
+        
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">Login Credentials</h3>
+          <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce;">
+            <p style="margin: 0 0 10px 0;"><strong>Username:</strong> <span style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${username}</span></p>
+            <p style="margin: 0;"><strong>Password:</strong> <span style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${password}</span></p>
+          </div>
+        </div>
+        
+        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107;">
+          <p style="margin: 0; color: #856404;"><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+          <p style="color: #666; margin: 0;">Welcome to the review panel!</p>
+          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
+        </div>
+      </div>
+    </div>
+  `;
 };
 
 export const createSubmissionConfirmationEmail = (authorName: string, paperTitle: string, submissionId: string) => {
