@@ -22,15 +22,17 @@ const handler = async (req: Request): Promise<Response> => {
     const { to, subject, html, from }: EmailRequest = await req.json();
 
     const gmailUser = Deno.env.get("GMAIL_USER");
-    const gmailAppPassword = Deno.env.get("GMAIL_APP_PASSWORD");
+    const clientId = Deno.env.get("GMAIL_CLIENT_ID");
+    const clientSecret = Deno.env.get("GMAIL_CLIENT_SECRET");
+    const refreshToken = Deno.env.get("GMAIL_REFRESH_TOKEN");
 
-    if (!gmailUser || !gmailAppPassword) {
-      console.error("Gmail credentials not configured");
+    if (!gmailUser || !clientId || !clientSecret || !refreshToken) {
+      console.error("Gmail OAuth2 credentials not configured");
       return new Response(
         JSON.stringify({ 
           success: false,
-          message: "Gmail credentials not configured",
-          error: "Missing GMAIL_USER or GMAIL_APP_PASSWORD environment variables"
+          message: "Gmail OAuth2 credentials not configured",
+          error: "Missing GMAIL_USER, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, or GMAIL_REFRESH_TOKEN environment variables"
         }),
         {
           status: 500,
@@ -39,22 +41,25 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    console.log("Attempting to send email via Gmail...");
+    console.log("Sending email via Gmail OAuth2...");
     console.log("From:", from || gmailUser);
     console.log("To:", to);
     console.log("Subject:", subject);
 
-    // Use a reliable email service that works with Gmail SMTP
-    const emailData = {
+    // Get OAuth2 access token
+    const accessToken = await getOAuth2AccessToken(clientId, clientSecret, refreshToken);
+    
+    if (!accessToken) {
+      throw new Error("Failed to obtain OAuth2 access token");
+    }
+
+    // Send email using Gmail API
+    const result = await sendGmailEmail({
       from: from || gmailUser,
       to: to,
       subject: subject,
-      html: html,
-      text: html.replace(/<[^>]*>/g, '') // Strip HTML for text version
-    };
-
-    // Try sending via a third-party service that supports Gmail SMTP
-    const result = await sendViaEmailService(emailData, gmailUser, gmailAppPassword);
+      html: html
+    }, accessToken);
 
     console.log("Email sent successfully:", result);
 
@@ -62,7 +67,7 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ 
         success: true, 
         message: "Email sent successfully",
-        messageId: result.messageId,
+        messageId: result.id,
         details: {
           to: to,
           subject: subject,
@@ -92,102 +97,86 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-async function sendViaEmailService(emailData: any, gmailUser: string, gmailAppPassword: string) {
-  console.log("Sending email using Gmail credentials...");
-  
+async function getOAuth2AccessToken(clientId: string, clientSecret: string, refreshToken: string): Promise<string | null> {
   try {
-    // Use EmailJS service which has good Gmail integration
-    const emailJSResponse = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify({
-        service_id: "gmail",
-        template_id: "template_default",
-        user_id: "public_key", // EmailJS requires this but we'll handle it differently
-        template_params: {
-          from_name: "Anna University",
-          from_email: emailData.from,
-          to_email: emailData.to,
-          to_name: emailData.to.split('@')[0],
-          subject: emailData.subject,
-          message_html: emailData.html,
-          reply_to: emailData.from
-        }
-      })
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
     });
 
-    if (emailJSResponse.ok) {
-      return {
-        success: true,
-        messageId: `gmail-emailjs-${Date.now()}@gmail.com`,
-        response: 'Email sent via EmailJS Gmail service'
-      };
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OAuth2 token refresh failed:", errorText);
+      return null;
     }
 
-    // If EmailJS fails, try SMTP2GO which has Gmail relay support
-    console.log("EmailJS failed, trying SMTP2GO...");
-    
-    const smtp2goResponse = await fetch("https://api.smtp2go.com/v3/email/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Smtp2go-Api-Key": btoa(`${gmailUser}:${gmailAppPassword}`).substring(0, 32)
-      },
-      body: JSON.stringify({
-        api_key: "gmail-relay",
-        to: [emailData.to],
-        sender: emailData.from,
-        subject: emailData.subject,
-        html_body: emailData.html,
-        text_body: emailData.text
-      })
-    });
-
-    if (smtp2goResponse.ok) {
-      const result = await smtp2goResponse.json();
-      return {
-        success: true,
-        messageId: `gmail-smtp2go-${Date.now()}@gmail.com`,
-        response: 'Email sent via SMTP2GO Gmail relay'
-      };
-    }
-
-    // If all services fail, create a simple SMTP-like simulation
-    console.log("All external services failed, using Gmail simulation...");
-    
-    // For development/testing purposes, simulate successful send
-    // In production, you'd implement direct SMTP or use a proper email service
-    const simulatedResponse = await simulateGmailSend(emailData, gmailUser, gmailAppPassword);
-    
-    return simulatedResponse;
-
+    const data = await response.json();
+    return data.access_token;
   } catch (error) {
-    console.error("Email service error:", error);
-    throw new Error(`Email sending failed: ${error.message}`);
+    console.error("Error refreshing OAuth2 token:", error);
+    return null;
   }
 }
 
-async function simulateGmailSend(emailData: any, gmailUser: string, gmailAppPassword: string) {
-  console.log("=== SIMULATED GMAIL SEND ===");
-  console.log(`From: ${emailData.from}`);
-  console.log(`To: ${emailData.to}`);
-  console.log(`Subject: ${emailData.subject}`);
-  console.log(`Gmail User: ${gmailUser}`);
-  console.log(`App Password Length: ${gmailAppPassword ? gmailAppPassword.length : 0} chars`);
-  console.log("HTML Content Preview:", emailData.html.substring(0, 100) + "...");
-  console.log("================================");
+async function sendGmailEmail(emailData: any, accessToken: string) {
+  // Create the email message in RFC 2822 format
+  const boundary = "boundary_" + Math.random().toString(36).substr(2, 9);
+  
+  const rawMessage = [
+    `From: ${emailData.from}`,
+    `To: ${emailData.to}`,
+    `Subject: ${emailData.subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ``,
+    `--${boundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: quoted-printable`,
+    ``,
+    emailData.html,
+    ``,
+    `--${boundary}--`
+  ].join('\r\n');
 
-  // Simulate a delay like a real email send
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // Encode the message in base64url format
+  const encodedMessage = btoa(rawMessage)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 
-  return {
-    success: true,
-    messageId: `gmail-simulated-${Date.now()}@gmail.com`,
-    response: `Simulated email sent from ${emailData.from} to ${emailData.to}`,
-    note: "This is a simulation. Configure proper Gmail SMTP for actual sending."
-  };
+  try {
+    const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        raw: encodedMessage
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Gmail API send failed:", errorText);
+      throw new Error(`Gmail API error: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log("Gmail API response:", result);
+    return result;
+  } catch (error) {
+    console.error("Error sending email via Gmail API:", error);
+    throw error;
+  }
 }
 
 serve(handler);
