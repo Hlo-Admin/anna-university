@@ -342,33 +342,30 @@ const AdminDashboard = () => {
         }
       }
 
-      // Send email to student for selected/rejected status
+      // Send email to student for selected/rejected status using the enhanced function
       if (submission) {
         try {
-          const { sendEmail, createStudentStatusUpdateEmail } = await import("@/utils/emailService");
-          const emailHtml = createStudentStatusUpdateEmail(
+          const { sendStudentStatusUpdateEmail } = await import("@/utils/emailService");
+          
+          const result = await sendStudentStatusUpdateEmail(
+            submission.email,
             submission.author_name,
             submission.paper_title,
             reviewerStatusUpdate.newStatus,
             submission.submission_id,
             remarks
           );
-          
-          await sendEmail({
-            to: submission.email,
-            subject: `Paper Review Update: ${submission.submission_id} - ${submission.paper_title}`,
-            html: emailHtml
-          });
 
           toast({
             title: "Status Updated",
-            description: `Submission ${submission.submission_id} status changed to ${reviewerStatusUpdate.newStatus} and email notifications sent to both reviewer and student`,
+            description: `Submission ${submission.submission_id} status changed to ${reviewerStatusUpdate.newStatus}. ${result.message}`,
           });
         } catch (emailError: any) {
           console.error("Email to student failed:", emailError);
           toast({
             title: "Status Updated",
-            description: `Submission ${submission.submission_id} status changed to ${reviewerStatusUpdate.newStatus} and email notification sent to reviewer only`,
+            description: `Submission ${submission.submission_id} status changed to ${reviewerStatusUpdate.newStatus}, but student email notification failed`,
+            variant: "destructive"
           });
         }
       }

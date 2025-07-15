@@ -29,6 +29,12 @@ export const sendEmail = async (emailData: EmailData) => {
   }
 };
 
+// Helper function to check if email should be excluded from student notifications
+const shouldExcludeFromStudentEmails = (email: string): boolean => {
+  const excludedEmails = ['admin@conference.com'];
+  return excludedEmails.includes(email.toLowerCase());
+};
+
 export const createRegistrationConfirmationEmail = (authorName: string, paperTitle: string) => {
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -302,4 +308,28 @@ export const createStudentStatusUpdateEmail = (studentName: string, paperTitle: 
       </div>
     </div>
   `;
+};
+
+// Enhanced function to send student status update emails with exclusion logic
+export const sendStudentStatusUpdateEmail = async (studentEmail: string, studentName: string, paperTitle: string, status: string, submissionId: string, remarks?: string) => {
+  // Check if email should be excluded from student notifications
+  if (shouldExcludeFromStudentEmails(studentEmail)) {
+    console.log(`Skipping student email to excluded address: ${studentEmail}`);
+    return { success: true, message: `Email sending skipped for excluded address: ${studentEmail}` };
+  }
+
+  try {
+    const emailHtml = createStudentStatusUpdateEmail(studentName, paperTitle, status, submissionId, remarks);
+    
+    await sendEmail({
+      to: studentEmail,
+      subject: `Paper Review Update: ${submissionId} - ${paperTitle}`,
+      html: emailHtml
+    });
+
+    return { success: true, message: `Email sent successfully to ${studentEmail}` };
+  } catch (error: any) {
+    console.error("Failed to send student status update email:", error);
+    throw error;
+  }
 };
