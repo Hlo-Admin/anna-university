@@ -132,9 +132,6 @@ const ReviewerDashboard = () => {
         // Don't block the status update if email fails
       }
 
-      // Send email to admin/reviewer about status update
-     
-
       loadAssignedSubmissions(currentUser.id);
       toast({
         title: "Status Updated",

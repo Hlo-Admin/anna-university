@@ -6,7 +6,19 @@ interface EmailData {
   html: string;
 }
 
+// Helper function to check if email should be excluded from ALL email notifications
+const shouldExcludeFromAllEmails = (email: string): boolean => {
+  const excludedEmails = ['admin@conference.com'];
+  return excludedEmails.includes(email.toLowerCase());
+};
+
 export const sendEmail = async (emailData: EmailData) => {
+  // Check if email should be excluded from all notifications
+  if (shouldExcludeFromAllEmails(emailData.to)) {
+    console.log(`Skipping email to excluded address: ${emailData.to}`);
+    return { success: true, message: `Email sending skipped for excluded address: ${emailData.to}` };
+  }
+
   try {
     console.log("Sending email to:", emailData.to);
     console.log("Subject:", emailData.subject);
@@ -29,10 +41,9 @@ export const sendEmail = async (emailData: EmailData) => {
   }
 };
 
-// Helper function to check if email should be excluded from student notifications
+// Helper function to check if email should be excluded from student notifications (keeping for backward compatibility)
 const shouldExcludeFromStudentEmails = (email: string): boolean => {
-  const excludedEmails = ['admin@conference.com'];
-  return excludedEmails.includes(email.toLowerCase());
+  return shouldExcludeFromAllEmails(email);
 };
 
 export const createRegistrationConfirmationEmail = (authorName: string, paperTitle: string) => {
