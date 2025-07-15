@@ -133,23 +133,7 @@ const ReviewerDashboard = () => {
       }
 
       // Send email to admin/reviewer about status update
-      try {
-        await sendEmail({
-          to: 'admin@conference.com', // You might want to make this configurable
-          subject: `Status Update - ${statusUpdateDialog.submission.submission_id}`,
-          html: createStatusUpdateEmail(
-            currentUser.name || currentUser.username,
-            statusUpdateDialog.submission.paper_title,
-            statusUpdateDialog.newStatus,
-            statusUpdateDialog.submission.submission_id || ''
-          )
-        });
-        
-        console.log('Admin notification email sent successfully');
-      } catch (emailError) {
-        console.error('Failed to send admin notification email:', emailError);
-        // Don't block the status update if email fails
-      }
+     
 
       loadAssignedSubmissions(currentUser.id);
       toast({
