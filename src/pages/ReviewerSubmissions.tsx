@@ -8,33 +8,8 @@ import { ArrowLeft, FileText, Eye } from "lucide-react";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
 import { SubmissionSearchFilter } from "@/components/SubmissionSearchFilter";
+import { FormSubmission } from "@/types/submission";
 import { supabase } from "@/integrations/supabase/client";
-
-interface FormSubmission {
-  id: string;
-  submission_id: string | null;
-  submission_type: string;
-  author_name: string;
-  co_author_name: string;
-  email: string;
-  phone_country_code: string;
-  phone_number: string;
-  whatsapp_country_code?: string;
-  whatsapp_number?: string;
-  paper_title: string;
-  institution: string;
-  designation: string;
-  department: string;
-  presentation_mode: string;
-  journal_publication: string;
-  message?: string;
-  document_url?: string;
-  document_name?: string;
-  status: string;
-  remarks?: string;
-  assigned_to: string | null;
-  submitted_at: string;
-}
 
 interface ReviewerUser {
   id: string;
@@ -191,7 +166,7 @@ const ReviewerSubmissions = () => {
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="font-semibold text-lg">{submission.author_name}</h3>
                           <Badge variant="outline" className="font-mono text-xs">
-                            {submission.submission_id}
+                            {submission.submission_id || 'N/A'}
                           </Badge>
                         </div>
                         <p className="text-gray-600">{submission.email}</p>
