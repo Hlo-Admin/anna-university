@@ -26,6 +26,12 @@ const handler = async (req: Request): Promise<Response> => {
     const clientSecret = Deno.env.get("GMAIL_CLIENT_SECRET");
     const refreshToken = Deno.env.get("GMAIL_REFRESH_TOKEN");
 
+    console.log("Environment variables check:");
+    console.log("GMAIL_USER:", gmailUser ? "✓ Set" : "✗ Missing");
+    console.log("GMAIL_CLIENT_ID:", clientId ? "✓ Set" : "✗ Missing");
+    console.log("GMAIL_CLIENT_SECRET:", clientSecret ? "✓ Set" : "✗ Missing");
+    console.log("GMAIL_REFRESH_TOKEN:", refreshToken ? "✓ Set" : "✗ Missing");
+
     if (!gmailUser || !clientId || !clientSecret || !refreshToken) {
       console.error("Gmail OAuth2 credentials not configured");
       return new Response(
@@ -99,6 +105,8 @@ const handler = async (req: Request): Promise<Response> => {
 
 async function getOAuth2AccessToken(clientId: string, clientSecret: string, refreshToken: string): Promise<string | null> {
   try {
+    console.log("Attempting to refresh OAuth2 token...");
+    
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: {
@@ -112,13 +120,16 @@ async function getOAuth2AccessToken(clientId: string, clientSecret: string, refr
       }),
     });
 
+    console.log("OAuth2 token response status:", response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OAuth2 token refresh failed:", errorText);
+      console.error("OAuth2 token refresh failed:", response.status, errorText);
       return null;
     }
 
     const data = await response.json();
+    console.log("OAuth2 token refreshed successfully");
     return data.access_token;
   } catch (error) {
     console.error("Error refreshing OAuth2 token:", error);
@@ -127,32 +138,36 @@ async function getOAuth2AccessToken(clientId: string, clientSecret: string, refr
 }
 
 async function sendGmailEmail(emailData: any, accessToken: string) {
-  // Create the email message in RFC 2822 format
-  const boundary = "boundary_" + Math.random().toString(36).substr(2, 9);
-  
-  const rawMessage = [
-    `From: ${emailData.from}`,
-    `To: ${emailData.to}`,
-    `Subject: ${emailData.subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    ``,
-    `--${boundary}`,
-    `Content-Type: text/html; charset=UTF-8`,
-    `Content-Transfer-Encoding: quoted-printable`,
-    ``,
-    emailData.html,
-    ``,
-    `--${boundary}--`
-  ].join('\r\n');
-
-  // Encode the message in base64url format
-  const encodedMessage = btoa(rawMessage)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-
   try {
+    console.log("Preparing email message...");
+    
+    // Create the email message in RFC 2822 format
+    const boundary = "boundary_" + Math.random().toString(36).substr(2, 9);
+    
+    const rawMessage = [
+      `From: ${emailData.from}`,
+      `To: ${emailData.to}`,
+      `Subject: ${emailData.subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: quoted-printable`,
+      ``,
+      emailData.html,
+      ``,
+      `--${boundary}--`
+    ].join('\r\n');
+
+    // Encode the message in base64url format
+    const encodedMessage = btoa(rawMessage)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    console.log("Sending email via Gmail API...");
+
     const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
       method: "POST",
       headers: {
@@ -164,9 +179,11 @@ async function sendGmailEmail(emailData: any, accessToken: string) {
       }),
     });
 
+    console.log("Gmail API response status:", response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gmail API send failed:", errorText);
+      console.error("Gmail API send failed:", response.status, errorText);
       throw new Error(`Gmail API error: ${response.status} ${response.statusText}`);
     }
 
