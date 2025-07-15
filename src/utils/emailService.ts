@@ -1,4 +1,4 @@
-const GMAIL_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL || 'https://aztaqiacvdpjhzoeddls.supabase.co'}/functions/v1/send-gmail`;
+const GMAIL_ENDPOINT = `https://aztaqiacvdpjhzoeddls.supabase.co/functions/v1/send-gmail`;
 
 interface EmailData {
   to: string;
@@ -8,6 +8,9 @@ interface EmailData {
 
 export const sendEmail = async (emailData: EmailData) => {
   try {
+    console.log("Sending email to:", emailData.to);
+    console.log("Subject:", emailData.subject);
+    
     const response = await fetch(GMAIL_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -16,11 +19,15 @@ export const sendEmail = async (emailData: EmailData) => {
       body: JSON.stringify(emailData),
     });
 
+    const responseData = await response.json();
+    
     if (!response.ok) {
-      throw new Error(`Email sending failed: ${response.statusText}`);
+      console.error("Email API response error:", responseData);
+      throw new Error(`Email sending failed: ${responseData.message || response.statusText}`);
     }
 
-    return await response.json();
+    console.log("Email sent successfully:", responseData);
+    return responseData;
   } catch (error) {
     console.error('Error sending email:', error);
     throw error;
