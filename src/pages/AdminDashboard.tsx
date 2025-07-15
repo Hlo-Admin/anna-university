@@ -13,6 +13,8 @@ import { SubmissionDetailsDialog } from "@/components/SubmissionDetailsDialog";
 import { StatusUpdateDialog } from "@/components/StatusUpdateDialog";
 import { AssignReviewerDialog } from "@/components/AssignReviewerDialog";
 import { SubmissionTypeFilter } from "@/components/SubmissionTypeFilter";
+import { SubmissionSearchFilter } from "@/components/SubmissionSearchFilter";
+import { ReviewerStatusUpdate } from "@/components/ReviewerStatusUpdate";
 import { supabase } from "@/integrations/supabase/client";
 import { FormSubmission } from "@/types/submission";
 
@@ -30,6 +32,7 @@ interface ReviewerUser {
 
 const AdminDashboard = () => {
   const [submissions, setSubmissions] = useState<FormSubmission[]>([]);
+  const [filteredSubmissions, setFilteredSubmissions] = useState<FormSubmission[]>([]);
   const [reviewers, setReviewers] = useState<ReviewerUser[]>([]);
   const [activeView, setActiveView] = useState("dashboard");
   const [submissionTypeFilter, setSubmissionTypeFilter] = useState("all");
@@ -51,6 +54,19 @@ const AdminDashboard = () => {
     submission: null
   });
   const [statusUpdate, setStatusUpdate] = useState<{
+    isOpen: boolean;
+    submissionId: string;
+    currentStatus: string;
+    newStatus: string;
+    paperTitle: string;
+  }>({
+    isOpen: false,
+    submissionId: "",
+    currentStatus: "",
+    newStatus: "",
+    paperTitle: ""
+  });
+  const [reviewerStatusUpdate, setReviewerStatusUpdate] = useState<{
     isOpen: boolean;
     submissionId: string;
     currentStatus: string;
@@ -90,6 +106,11 @@ const AdminDashboard = () => {
 
     loadData();
   }, [navigate]);
+
+  // Initialize filtered submissions when submissions change
+  useEffect(() => {
+    setFilteredSubmissions(submissions);
+  }, [submissions]);
 
   const loadData = async () => {
     try {
@@ -202,73 +223,27 @@ const AdminDashboard = () => {
     }
   };
 
-  const assignToReviewer = async (submissionId: string, reviewerId: string) => {
-    try {
-      const { error } = await supabase
-        .from('paper_submissions')
-        .update({ 
-          assigned_to: reviewerId, 
-          status: 'assigned',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', submissionId);
-
-      if (error) throw error;
-
-      // Send assignment email
-      const submission = submissions.find(s => s.id === submissionId);
-      const reviewer = reviewers.find(r => r.id === reviewerId);
-      
-      if (submission && reviewer) {
-        try {
-          const { sendEmail, createAssignmentEmail } = await import("@/utils/emailService");
-          const emailHtml = createAssignmentEmail(
-            reviewer.name,
-            submission.paper_title,
-            submission.author_name,
-            submission.submission_id
-          );
-          
-          await sendEmail({
-            to: reviewer.email,
-            subject: `New Paper Assignment: ${submission.submission_id} - ${submission.paper_title}`,
-            html: emailHtml
-          });
-          
-          toast({
-            title: "Assignment Updated",
-            description: `Submission ${submission.submission_id} has been assigned to reviewer and email notification sent`,
-          });
-        } catch (emailError: any) {
-          console.error("Email sending failed:", emailError);
-          toast({
-            title: "Assignment Updated",
-            description: `Submission ${submission.submission_id} has been assigned to reviewer, but email notification failed`,
-            variant: "destructive"
-          });
-        }
-      }
-
-      loadData(); // Refresh data
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
-  };
-
   const handleStatusUpdateRequest = (submissionId: string, newStatus: string) => {
     const submission = submissions.find(s => s.id === submissionId);
     if (submission) {
-      setStatusUpdate({
-        isOpen: true,
-        submissionId,
-        currentStatus: submission.status,
-        newStatus,
-        paperTitle: submission.paper_title
-      });
+      // Check if the status change is for selected/rejected (needs remarks)
+      if (newStatus === 'selected' || newStatus === 'rejected') {
+        setReviewerStatusUpdate({
+          isOpen: true,
+          submissionId,
+          currentStatus: submission.status,
+          newStatus,
+          paperTitle: submission.paper_title
+        });
+      } else {
+        setStatusUpdate({
+          isOpen: true,
+          submissionId,
+          currentStatus: submission.status,
+          newStatus,
+          paperTitle: submission.paper_title
+        });
+      }
     }
   };
 
@@ -311,16 +286,72 @@ const AdminDashboard = () => {
         }
       }
 
-      // Send email to student if status is selected or rejected
-      if (submission && (statusUpdate.newStatus === 'selected' || statusUpdate.newStatus === 'rejected')) {
+      toast({
+        title: "Status Updated",
+        description: `Submission ${submission?.submission_id} status changed to ${statusUpdate.newStatus}`,
+      });
+
+      loadData(); // Refresh data
+      setStatusUpdate({ ...statusUpdate, isOpen: false });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const confirmReviewerStatusUpdate = async (remarks: string) => {
+    try {
+      const { error } = await supabase
+        .from('paper_submissions')
+        .update({ 
+          status: reviewerStatusUpdate.newStatus,
+          remarks: remarks,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reviewerStatusUpdate.submissionId);
+
+      if (error) throw error;
+
+      // Get submission details for email
+      const submission = submissions.find(s => s.id === reviewerStatusUpdate.submissionId);
+      
+      // Send status update email to reviewer
+      if (submission && submission.assigned_to) {
+        const reviewer = reviewers.find(r => r.id === submission.assigned_to);
+        if (reviewer) {
+          try {
+            const { sendEmail, createStatusUpdateEmail } = await import("@/utils/emailService");
+            const emailHtml = createStatusUpdateEmail(
+              reviewer.name,
+              submission.paper_title,
+              reviewerStatusUpdate.newStatus,
+              submission.submission_id
+            );
+            
+            await sendEmail({
+              to: reviewer.email,
+              subject: `Status Update: ${submission.submission_id} - ${submission.paper_title}`,
+              html: emailHtml
+            });
+          } catch (emailError: any) {
+            console.error("Email to reviewer failed:", emailError);
+          }
+        }
+      }
+
+      // Send email to student for selected/rejected status
+      if (submission) {
         try {
           const { sendEmail, createStudentStatusUpdateEmail } = await import("@/utils/emailService");
           const emailHtml = createStudentStatusUpdateEmail(
             submission.author_name,
             submission.paper_title,
-            statusUpdate.newStatus,
+            reviewerStatusUpdate.newStatus,
             submission.submission_id,
-            submission.remarks
+            remarks
           );
           
           await sendEmail({
@@ -331,24 +362,19 @@ const AdminDashboard = () => {
 
           toast({
             title: "Status Updated",
-            description: `Submission ${submission.submission_id} status changed to ${statusUpdate.newStatus} and email notifications sent`,
+            description: `Submission ${submission.submission_id} status changed to ${reviewerStatusUpdate.newStatus} and email notifications sent to both reviewer and student`,
           });
         } catch (emailError: any) {
           console.error("Email to student failed:", emailError);
           toast({
             title: "Status Updated",
-            description: `Submission ${submission.submission_id} status changed to ${statusUpdate.newStatus} and email notification sent to reviewer`,
+            description: `Submission ${submission.submission_id} status changed to ${reviewerStatusUpdate.newStatus} and email notification sent to reviewer only`,
           });
         }
-      } else {
-        toast({
-          title: "Status Updated",
-          description: `Submission ${submission.submission_id} status changed to ${statusUpdate.newStatus}`,
-        });
       }
 
       loadData(); // Refresh data
-      setStatusUpdate({ ...statusUpdate, isOpen: false });
+      setReviewerStatusUpdate({ ...reviewerStatusUpdate, isOpen: false });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -407,7 +433,7 @@ const AdminDashboard = () => {
   };
 
   const getFilteredSubmissions = () => {
-    let filtered = submissions;
+    let filtered = filteredSubmissions;
     
     // Filter by submission type
     if (submissionTypeFilter !== "all") {
@@ -607,129 +633,137 @@ const AdminDashboard = () => {
 
       default:
         return (
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>
-                    {activeView === "all-data" ? "All Paper Submissions" :
-                     activeView === "unassigned" ? "Unassigned Submissions" :
-                     activeView === "assigned" ? "Assigned Submissions" :
-                     activeView === "selected" ? "Selected Submissions" :
-                     activeView === "rejected" ? "Rejected Submissions" : "Paper Submissions"}
-                  </CardTitle>
-                  <CardDescription>Review and manage paper submissions</CardDescription>
+          <div className="space-y-6">
+            <SubmissionSearchFilter
+              submissions={submissions}
+              onFilteredResults={setFilteredSubmissions}
+              className="mb-6"
+            />
+            
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>
+                      {activeView === "all-data" ? "All Paper Submissions" :
+                       activeView === "unassigned" ? "Unassigned Submissions" :
+                       activeView === "assigned" ? "Assigned Submissions" :
+                       activeView === "selected" ? "Selected Submissions" :
+                       activeView === "rejected" ? "Rejected Submissions" : "Paper Submissions"}
+                    </CardTitle>
+                    <CardDescription>Review and manage paper submissions</CardDescription>
+                  </div>
+                  <SubmissionTypeFilter
+                    value={submissionTypeFilter}
+                    onChange={setSubmissionTypeFilter}
+                  />
                 </div>
-                <SubmissionTypeFilter
-                  value={submissionTypeFilter}
-                  onChange={setSubmissionTypeFilter}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {getFilteredSubmissions().map((submission) => (
-                  <div key={submission.id} className="border rounded-lg p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-lg">{submission.author_name}</h3>
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {submission.submission_id}
-                          </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {getFilteredSubmissions().map((submission) => (
+                    <div key={submission.id} className="border rounded-lg p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-lg">{submission.author_name}</h3>
+                            <Badge variant="outline" className="font-mono text-xs">
+                              {submission.submission_id}
+                            </Badge>
+                          </div>
+                          <p className="text-gray-600">{submission.email}</p>
+                          <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
+                          <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
                         </div>
-                        <p className="text-gray-600">{submission.email}</p>
-                        <p className="text-sm text-gray-500">{submission.phone_country_code} {submission.phone_number}</p>
-                        <p className="text-sm text-gray-500">Institution: {submission.institution}</p>
+                        <div className="text-right">
+                          <Badge className={getStatusColor(submission.status)}>
+                            {submission.status.toUpperCase()}
+                          </Badge>
+                          <p className="text-xs text-gray-400 mt-2 capitalize">
+                            {submission.submission_type.replace('-', ' ')}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <Badge className={getStatusColor(submission.status)}>
-                          {submission.status.toUpperCase()}
-                        </Badge>
-                        <p className="text-xs text-gray-400 mt-2 capitalize">
-                          {submission.submission_type.replace('-', ' ')}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
-                      <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
-                    </div>
-
-                    {submission.remarks && (
+                      
                       <div className="mb-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Reviewer Remarks:</h4>
-                        <p className="text-gray-700 bg-blue-50 p-3 rounded border-l-4 border-blue-400">{submission.remarks}</p>
+                        <h4 className="font-medium text-gray-900 mb-2">Paper Title:</h4>
+                        <p className="text-gray-700 bg-gray-50 p-3 rounded">{submission.paper_title}</p>
                       </div>
-                    )}
-                    
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openSubmissionDetails(submission)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Button>
-                        {submission.document_url && submission.document_name && (
+
+                      {submission.remarks && (
+                        <div className="mb-4">
+                          <h4 className="font-medium text-gray-900 mb-2">Admin Remarks:</h4>
+                          <p className="text-gray-700 bg-blue-50 p-3 rounded border-l-4 border-blue-400">{submission.remarks}</p>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
+                            onClick={() => openSubmissionDetails(submission)}
                           >
-                            <FileText className="h-4 w-4 mr-1" />
-                            View Document
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Details
                           </Button>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={submission.status}
-                          onValueChange={(value) => handleStatusUpdateRequest(submission.id, value)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="assigned">Assigned</SelectItem>
-                            <SelectItem value="selected">Selected</SelectItem>
-                            <SelectItem value="rejected">Rejected</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          {submission.document_url && submission.document_name && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDocumentViewer(submission.document_url!, submission.document_name!)}
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              View Document
+                            </Button>
+                          )}
+                        </div>
                         
-                        <Select
-                          value={submission.assigned_to || ""}
-                          onValueChange={(value) => handleAssignReviewerRequest(submission.id, value)}
-                        >
-                          <SelectTrigger className="w-48">
-                            <SelectValue placeholder="Assign to reviewer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {reviewers.filter(r => r.is_active !== false).map((reviewer) => (
-                              <SelectItem key={reviewer.id} value={reviewer.id}>
-                                {reviewer.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={submission.status}
+                            onValueChange={(value) => handleStatusUpdateRequest(submission.id, value)}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="assigned">Assigned</SelectItem>
+                              <SelectItem value="selected">Selected</SelectItem>
+                              <SelectItem value="rejected">Rejected</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          <Select
+                            value={submission.assigned_to || ""}
+                            onValueChange={(value) => handleAssignReviewerRequest(submission.id, value)}
+                          >
+                            <SelectTrigger className="w-48">
+                              <SelectValue placeholder="Assign to reviewer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {reviewers.filter(r => r.is_active !== false).map((reviewer) => (
+                                <SelectItem key={reviewer.id} value={reviewer.id}>
+                                  {reviewer.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                
-                {getFilteredSubmissions().length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No submissions found for this view and filter combination.
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                  
+                  {getFilteredSubmissions().length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      No submissions found for this view and filter combination.
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         );
     }
   };
@@ -782,6 +816,16 @@ const AdminDashboard = () => {
         currentStatus={statusUpdate.currentStatus}
         newStatus={statusUpdate.newStatus}
         paperTitle={statusUpdate.paperTitle}
+      />
+
+      <ReviewerStatusUpdate
+        isOpen={reviewerStatusUpdate.isOpen}
+        onClose={() => setReviewerStatusUpdate({ ...reviewerStatusUpdate, isOpen: false })}
+        onConfirm={confirmReviewerStatusUpdate}
+        currentStatus={reviewerStatusUpdate.currentStatus}
+        newStatus={reviewerStatusUpdate.newStatus}
+        paperTitle={reviewerStatusUpdate.paperTitle}
+        submissionId={submissions.find(s => s.id === reviewerStatusUpdate.submissionId)?.submission_id || ""}
       />
 
       <AssignReviewerDialog
