@@ -1,4 +1,4 @@
-const GMAIL_ENDPOINT = `https://aztaqiacvdpjhzoeddls.supabase.co/functions/v1/send-gmail`;
+import { supabase } from "@/integrations/supabase/client";
 
 interface EmailData {
   to: string;
@@ -11,23 +11,18 @@ export const sendEmail = async (emailData: EmailData) => {
     console.log("Sending email to:", emailData.to);
     console.log("Subject:", emailData.subject);
     
-    const response = await fetch(GMAIL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(emailData),
+    // Use Supabase client to invoke the edge function instead of direct fetch
+    const { data, error } = await supabase.functions.invoke('send-gmail', {
+      body: emailData,
     });
 
-    const responseData = await response.json();
-    
-    if (!response.ok) {
-      console.error("Email API response error:", responseData);
-      throw new Error(`Email sending failed: ${responseData.message || response.statusText}`);
+    if (error) {
+      console.error("Email function error:", error);
+      throw new Error(`Email sending failed: ${error.message}`);
     }
 
-    console.log("Email sent successfully:", responseData);
-    return responseData;
+    console.log("Email sent successfully:", data);
+    return data;
   } catch (error) {
     console.error('Error sending email:', error);
     throw error;
