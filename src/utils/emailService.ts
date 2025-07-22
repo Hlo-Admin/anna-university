@@ -114,42 +114,48 @@ export const createReviewerCredentialsEmail = (reviewerName: string, username: s
 export const createSubmissionConfirmationEmail = (authorName: string, paperTitle: string, submissionId: string) => {
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <h1 style="margin: 0; font-size: 28px;">Paper Submission Confirmed</h1>
-        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your submission has been successfully received</p>
+      <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="margin: 0; font-size: 28px;">ICAIEA 2026</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">International Conference on Advances in Industrial Engineering Applications</p>
       </div>
       
       <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
         <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="color: #4a5568; margin-top: 0;">Hello ${authorName},</h2>
-          <p style="color: #666; font-size: 16px;">Thank you for submitting your paper to our conference. We have successfully received your submission and it's now under review.</p>
+          <h2 style="color: #4a5568; margin-top: 0;">Dear ${authorName},</h2>
+          <p style="color: #666; font-size: 16px; margin-bottom: 16px;">Greetings from ICAIEA 2026!</p>
+          <p style="color: #666; font-size: 16px;">We are pleased to inform you that we have successfully received your abstract submission for the International Conference on Advances in Industrial Engineering Applications (ICAIEA 2026), themed "Innovations & Sustainable Practices in Industrial Engineering."</p>
         </div>
         
         <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
           <h3 style="color: #4a5568; margin-top: 0;">Submission Details</h3>
           <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce;">
             <p style="margin: 0 0 10px 0;"><strong>Submission ID:</strong> <span style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${submissionId}</span></p>
-            <p style="margin: 0;"><strong>Paper Title:</strong> ${paperTitle}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Paper Title:</strong> ${paperTitle}</p>
+            <p style="margin: 0;"><strong>Status:</strong> <span style="color: #f59e0b; font-weight: bold;">Under Review</span></p>
           </div>
         </div>
         
         <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
           <h3 style="color: #4a5568; margin-top: 0;">What's Next?</h3>
-          <ul style="color: #666; padding-left: 20px;">
-            <li>Your paper will be assigned to a reviewer</li>
-            <li>The review process typically takes 2-3 weeks</li>
-            <li>You'll receive email updates about the status of your submission</li>
-            <li>Please keep your submission ID for future reference</li>
+          <ul style="color: #666; padding-left: 20px; margin: 0;">
+            <li style="margin-bottom: 8px;">Your abstract is currently under review by our technical committee</li>
+            <li style="margin-bottom: 8px;">The review process typically takes up to 2 weeks</li>
+            <li style="margin-bottom: 8px;">You will receive further communication regarding the acceptance status via email</li>
+            <li style="margin-bottom: 8px;">Once accepted, you will be invited to submit the full paper for final review, presentation and publication</li>
           </ul>
         </div>
         
-        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107;">
-          <p style="margin: 0; color: #856404;"><strong>Important:</strong> Please save your submission ID (${submissionId}) as you'll need it for any future correspondence regarding your paper.</p>
+        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 20px;">
+          <p style="margin: 0; color: #856404;">If you have any questions or require further assistance, please feel free to contact us at <strong>icaiea2026@gmail.com</strong>.</p>
         </div>
         
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-          <p style="color: #666; margin: 0;">If you have any questions, please don't hesitate to contact us.</p>
-          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
+          <p style="color: #666; margin: 0 0 15px 0;">We thank you for your contribution and look forward to your active participation in ICAIEA 2026.</p>
+          <p style="color: #666; margin: 0 0 15px 0; font-weight: bold;">Warm regards,</p>
+          <p style="color: #666; margin: 0 0 5px 0;"><strong>Organizing Committee</strong></p>
+          <p style="color: #666; margin: 0 0 5px 0;"><strong>ICAIEA 2026</strong></p>
+          <p style="color: #666; margin: 0 0 15px 0;"><strong>Anna University</strong></p>
+          <p style="color: #666; margin: 0; font-size: 14px;">Contact: +91 8939934561 | +91 8489224756</p>
         </div>
       </div>
     </div>
