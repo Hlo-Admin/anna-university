@@ -137,6 +137,19 @@ async function getOAuth2AccessToken(clientId: string, clientSecret: string, refr
   }
 }
 
+// Helper function to safely encode UTF-8 strings to base64url
+function encodeBase64Url(str: string): string {
+  // Convert string to UTF-8 bytes using TextEncoder
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  
+  // Convert bytes to base64
+  const base64 = btoa(String.fromCharCode(...bytes));
+  
+  // Convert to base64url format
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 async function sendGmailEmail(emailData: any, accessToken: string) {
   try {
     console.log("Preparing email message...");
@@ -160,11 +173,10 @@ async function sendGmailEmail(emailData: any, accessToken: string) {
       `--${boundary}--`
     ].join('\r\n');
 
-    // Encode the message in base64url format
-    const encodedMessage = btoa(rawMessage)
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
+    console.log("Encoding email message for Gmail API...");
+
+    // Use the safe UTF-8 encoding function instead of btoa directly
+    const encodedMessage = encodeBase64Url(rawMessage);
 
     console.log("Sending email via Gmail API...");
 
