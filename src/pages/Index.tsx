@@ -169,7 +169,7 @@ const Index = () => {
         
         await sendEmail({
           to: formData.email,
-          subject: `Acknowledgment of Abstract Submission ICAIEA 2026`,
+          subject: `Acknowledgment of Abstract Submission - ICAIEA 2026`,
           html: emailHtml
         });
         
