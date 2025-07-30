@@ -2,7 +2,7 @@
 import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, X } from "lucide-react";
+import { Download, FileText, X, ExternalLink } from "lucide-react";
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -17,29 +17,14 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentUrl,
   documentName
 }) => {
-  const handleDownload = async () => {
-    try {
-      const response = await fetch(documentUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = documentName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download failed:', error);
-      // Fallback to direct download
-      const link = document.createElement('a');
-      link.href = documentUrl;
-      link.download = documentName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+  const handleDownload = () => {
+    // For Google Drive links, we'll open the download URL in a new tab
+    const downloadUrl = documentUrl.replace('/view', '/export?format=pdf');
+    window.open(downloadUrl, '_blank');
+  };
+
+  const handleOpenInDrive = () => {
+    window.open(documentUrl, '_blank');
   };
 
   const getFileExtension = (filename: string) => {
@@ -49,19 +34,35 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const renderDocumentPreview = () => {
     const extension = getFileExtension(documentName);
     
-    console.log('Document URL:', documentUrl);
+    console.log('Google Drive Document URL:', documentUrl);
     console.log('Document Name:', documentName);
     console.log('File Extension:', extension);
     
-    if (extension === 'pdf') {
+    // For Google Drive documents, we'll use the embed URL
+    const embedUrl = documentUrl.replace('/view', '/preview');
+    
+    if (['doc', 'docx'].includes(extension)) {
       return (
         <div className="w-full h-[800px]">
           <iframe
-            src={`${documentUrl}#view=FitH`}
+            src={embedUrl}
             className="w-full h-full border rounded"
             title={documentName}
             onError={(e) => {
-              console.error('PDF iframe error:', e);
+              console.error('Google Drive embed error:', e);
+            }}
+          />
+        </div>
+      );
+    } else if (['pdf'].includes(extension)) {
+      return (
+        <div className="w-full h-[800px]">
+          <iframe
+            src={embedUrl}
+            className="w-full h-full border rounded"
+            title={documentName}
+            onError={(e) => {
+              console.error('PDF preview error:', e);
             }}
           />
         </div>
@@ -81,28 +82,18 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           />
         </div>
       );
-    } else if (['doc', 'docx'].includes(extension)) {
-      return (
-        <div className="w-full h-[800px]">
-          <iframe
-            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentUrl)}`}
-            className="w-full h-full border rounded"
-            title={documentName}
-            onError={(e) => {
-              console.error('Document viewer error:', e);
-            }}
-          />
-        </div>
-      );
     } else {
       return (
         <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
           <FileText className="h-16 w-16 mb-4" />
           <p className="text-lg">Preview not available for this file type</p>
           <p className="text-sm text-gray-400">{documentName}</p>
-          <Button onClick={() => window.open(documentUrl, '_blank')} variant="outline">
-            Open in New Tab
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleOpenInDrive} variant="outline">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open in Google Drive
+            </Button>
+          </div>
         </div>
       );
     }
@@ -116,8 +107,13 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             <div>
               <DialogTitle>Document Preview</DialogTitle>
               <DialogDescription>{documentName}</DialogDescription>
+              <p className="text-xs text-blue-600 mt-1">Stored in Google Drive</p>
             </div>
             <div className="flex gap-2">
+              <Button onClick={handleOpenInDrive} variant="outline" size="sm">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open in Drive
+              </Button>
               <Button onClick={handleDownload} variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
                 Download
