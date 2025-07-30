@@ -26,8 +26,8 @@ export const sendEmail = async (emailData: EmailData) => {
     console.log("Sending email to:", emailData.to);
     console.log("Subject:", emailData.subject);
 
-    // Use Supabase client to invoke the edge function instead of direct fetch
-    const { data, error } = await supabase.functions.invoke("send-gmail", {
+    // Use the new nodemailer edge function instead of Gmail API
+    const { data, error } = await supabase.functions.invoke("send-nodemailer", {
       body: emailData,
     });
 
@@ -307,16 +307,14 @@ export const createStudentStatusUpdateEmail = (
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
       <div style="background: ${headerColor}; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <h1 style="margin: 0; font-size: 28px;">Abstract Accepted</h1>
-        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">ICAIEA 2026 - International Conference on Advances in Industrial Engineering Applications</p>
+        <h1 style="margin: 0; font-size: 28px;">Paper Status Update</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your submission has been reviewed</p>
       </div>
       
       <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
         <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
           <h2 style="color: #4a5568; margin-top: 0;">Dear ${studentName},</h2>
-          <p style="color: #666; font-size: 16px;">
-            We are pleased to inform you that your abstract has been <strong style="color: #10b981;">ACCEPTED</strong> for the International Conference on Advances in Industrial Engineering Applications (ICAIEA 2026).
-          </p>
+          <p style="color: #666; font-size: 16px;">We have an update regarding your paper submission. Please find the details below:</p>
         </div>
         
         <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
@@ -324,45 +322,22 @@ export const createStudentStatusUpdateEmail = (
           <div style="background: #e8f4fd; padding: 15px; border-radius: 5px; border-left: 4px solid #3182ce;">
             <p style="margin: 0 0 10px 0;"><strong>Submission ID:</strong> <span style="font-family: monospace; background: #fff; padding: 2px 6px; border-radius: 3px;">${submissionId}</span></p>
             <p style="margin: 0 0 10px 0;"><strong>Paper Title:</strong> ${paperTitle}</p>
-            <p style="margin: 0;"><strong>Status:</strong> <span style="color: #10b981; font-weight: bold;">Accepted</span></p>
+            <p style="margin: 0;"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span></p>
           </div>
         </div>
         
+        ${remarks ? `
         <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
-          <h3 style="color: #4a5568; margin-top: 0;">Next Steps</h3>
-          <ul style="color: #666; padding-left: 20px;">
-            <li><strong>Full Paper Submission Deadline:</strong> December 5th, 2025</li>
-            <li>Submit your full paper through the conference submission portal</li>
-            <li>Complete the mandatory registration form:
-              <a href="https://forms.gle/ChiKC4VmTp9hvXUH9" style="color: #3182ce; text-decoration: none; font-weight: bold;">
-                📝 Registration & Payment Form
-              </a>
-            </li>
-            <li>Prepare your final manuscript according to the conference guidelines</li>
-            <li>Ensure all co-author details are accurately provided</li>
-          </ul>
+          <h3 style="color: #4a5568; margin-top: 0;">Reviewer Comments</h3>
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #6b7280;">
+            <p style="margin: 0; color: #374151;">${remarks}</p>
+          </div>
         </div>
-        
-        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 20px;">
-          <p style="margin: 0; color: #856404;">
-            <strong>Important:</strong> Submission of the registration form is mandatory for full paper consideration and conference registration.
-          </p>
-        </div>
-        
-        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
-          <h3 style="color: #4a5568; margin-top: 0;">Contact Information</h3>
-          <p style="color: #666; font-size: 16px;">
-            For any queries or assistance, please contact us at:
-            <br>
-            <strong>Email:</strong> <a href="mailto:icaiea2026@gmail.com" style="color: #3182ce; text-decoration: none;">icaiea2026@gmail.com</a>
-          </p>
-        </div>
+        ` : ''}
         
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-          <p style="color: #666; margin: 0;">
-            Congratulations on your abstract acceptance! We look forward to your full paper submission and participation in ICAIEA 2026.
-          </p>
-          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee<br>ICAIEA 2026, Anna University</p>
+          <p style="color: #666; margin: 0;">Thank you for your submission.</p>
+          <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
         </div>
       </div>
     </div>
