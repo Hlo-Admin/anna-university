@@ -3,7 +3,7 @@ import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Eye, X, ExternalLink } from "lucide-react";
+import { Download, Eye, X } from "lucide-react";
 import { FormSubmission } from "@/types/submission";
 
 interface SubmissionDetailsDialogProps {
@@ -33,15 +33,12 @@ export const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = (
 
   const handleDownload = () => {
     if (submission.document_url && submission.document_name) {
-      // For Google Drive URLs, convert to download format
-      const downloadUrl = submission.document_url.replace('/view', '/export?format=pdf');
-      window.open(downloadUrl, '_blank');
-    }
-  };
-
-  const handleOpenInDrive = () => {
-    if (submission.document_url) {
-      window.open(submission.document_url, '_blank');
+      const link = document.createElement('a');
+      link.href = submission.document_url;
+      link.download = submission.document_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -163,10 +160,7 @@ export const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = (
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-semibold text-lg mb-3">Uploaded Document</h3>
               <div className="flex items-center justify-between p-3 bg-white rounded border">
-                <div>
-                  <span className="font-medium block">{submission.document_name}</span>
-                  <span className="text-xs text-blue-600">Stored in Google Drive</span>
-                </div>
+                <span className="font-medium">{submission.document_name}</span>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -175,14 +169,6 @@ export const SubmissionDetailsDialog: React.FC<SubmissionDetailsDialogProps> = (
                   >
                     <Eye className="h-4 w-4 mr-1" />
                     View
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleOpenInDrive}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Drive
                   </Button>
                   <Button
                     variant="outline"
