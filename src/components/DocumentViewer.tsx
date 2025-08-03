@@ -3,6 +3,7 @@ import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, X } from "lucide-react";
+import { getLocalFile } from "@/utils/localFileUpload";
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -19,16 +20,35 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 }) => {
   const handleDownload = async () => {
     try {
-      const response = await fetch(documentUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = documentName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Check if it's a local file
+      if (documentUrl.startsWith('local://')) {
+        const fileName = documentUrl.replace('local://', '');
+        const fileData = getLocalFile(fileName);
+        
+        if (fileData) {
+          // Create download link from base64 data
+          const link = document.createElement('a');
+          link.href = fileData.data;
+          link.download = fileData.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          throw new Error('File not found in local storage');
+        }
+      } else {
+        // Regular download for non-local files
+        const response = await fetch(documentUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = documentName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error('Download failed:', error);
       // Fallback to direct download
@@ -46,18 +66,29 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     return filename.split('.').pop()?.toLowerCase() || '';
   };
 
+  const getDocumentSource = () => {
+    if (documentUrl.startsWith('local://')) {
+      const fileName = documentUrl.replace('local://', '');
+      const fileData = getLocalFile(fileName);
+      return fileData ? fileData.data : '';
+    }
+    return documentUrl;
+  };
+
   const renderDocumentPreview = () => {
     const extension = getFileExtension(documentName);
+    const source = getDocumentSource();
     
     console.log('Document URL:', documentUrl);
     console.log('Document Name:', documentName);
     console.log('File Extension:', extension);
+    console.log('Source:', source ? 'Data available' : 'No data');
     
     if (extension === 'pdf') {
       return (
         <div className="w-full h-[800px]">
           <iframe
-            src={`${documentUrl}#view=FitH`}
+            src={`${source}#view=FitH`}
             className="w-full h-full border rounded"
             title={documentName}
             onError={(e) => {
@@ -70,7 +101,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="flex justify-center items-center w-full h-[800px]">
           <img
-            src={documentUrl}
+            src={source}
             alt={documentName}
             className="max-w-full max-h-full object-contain"
             onError={(e) => {
@@ -82,10 +113,24 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         </div>
       );
     } else if (['doc', 'docx'].includes(extension)) {
+      // For local files, we can't use the Office online viewer
+      if (documentUrl.startsWith('local://')) {
+        return (
+          <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
+            <FileText className="h-16 w-16 mb-4" />
+            <p className="text-lg">Preview not available for local Word documents</p>
+            <p className="text-sm text-gray-400">{documentName}</p>
+            <Button onClick={handleDownload} variant="outline">
+              Download to View
+            </Button>
+          </div>
+        );
+      }
+      
       return (
         <div className="w-full h-[800px]">
           <iframe
-            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentUrl)}`}
+            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(source)}`}
             className="w-full h-full border rounded"
             title={documentName}
             onError={(e) => {
@@ -100,8 +145,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           <FileText className="h-16 w-16 mb-4" />
           <p className="text-lg">Preview not available for this file type</p>
           <p className="text-sm text-gray-400">{documentName}</p>
-          <Button onClick={() => window.open(documentUrl, '_blank')} variant="outline">
-            Open in New Tab
+          <Button onClick={handleDownload} variant="outline">
+            Download File
           </Button>
         </div>
       );
