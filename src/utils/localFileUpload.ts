@@ -8,68 +8,49 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `${timestamp}_${sanitizedName}`;
     
-    // Convert file to base64 and store in localStorage as a fallback
-    // In a real application, you'd want to send this to a backend
-    const reader = new FileReader();
+    // Create FormData to send file to local upload endpoint
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('fileName', fileName);
     
-    return new Promise((resolve, reject) => {
-      reader.onload = () => {
-        try {
-          const base64Data = reader.result as string;
-          
-          // Store file data in localStorage (this is just for demo purposes)
-          // In production, you'd send this to your backend server
-          const fileData = {
-            name: file.name,
-            data: base64Data,
-            type: file.type,
-            uploadedAt: new Date().toISOString()
-          };
-          
-          localStorage.setItem(`uploaded_file_${fileName}`, JSON.stringify(fileData));
-          
-          console.log('File stored locally:', fileName);
-          
-          resolve({
-            url: `local://${fileName}`, // Custom protocol to indicate local storage
-            name: file.name
-          });
-        } catch (error) {
-          reject(error);
-        }
-      };
-      
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'));
-      };
-      
-      reader.readAsDataURL(file);
+    // Upload to local server endpoint
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
     });
+    
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    console.log('File uploaded locally:', result);
+    
+    return {
+      url: result.path, // This will be something like /uploads/filename.ext
+      name: file.name
+    };
   } catch (error) {
     console.error('Local file upload error:', error);
     throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
 
-export const getLocalFile = (fileName: string): { name: string; data: string; type: string } | null => {
+export const deleteFileLocally = async (filePath: string): Promise<void> => {
   try {
-    const fileData = localStorage.getItem(`uploaded_file_${fileName}`);
-    if (fileData) {
-      return JSON.parse(fileData);
+    const response = await fetch('/api/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ filePath })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Delete failed: ${response.statusText}`);
     }
-    return null;
-  } catch (error) {
-    console.error('Error retrieving local file:', error);
-    return null;
-  }
-};
-
-export const deleteFileLocally = async (fileName: string): Promise<void> => {
-  try {
-    // Extract the actual filename from the URL if it's a local:// URL
-    const actualFileName = fileName.replace('local://', '');
-    localStorage.removeItem(`uploaded_file_${actualFileName}`);
-    console.log('File deleted successfully:', fileName);
+    
+    console.log('File deleted successfully:', filePath);
   } catch (error) {
     console.error('Local file delete error:', error);
     throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
