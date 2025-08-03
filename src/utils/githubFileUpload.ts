@@ -1,7 +1,7 @@
 
-const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN;
-const GITHUB_OWNER = import.meta.env.VITE_GITHUB_OWNER;
-const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO;
+const GITHUB_TOKEN = "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";
+const GITHUB_OWNER = "Hlo-Admin";
+const GITHUB_REPO = "anna-university";
 
 export const uploadFileToGitHub = async (file: File): Promise<{ url: string; name: string }> => {
   console.log('Starting GitHub file upload for:', file.name);
@@ -41,14 +41,18 @@ export const uploadFileToGitHub = async (file: File): Promise<{ url: string; nam
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error('GitHub API error response:', errorData);
       throw new Error(`GitHub API error: ${errorData.message || response.statusText}`);
     }
 
     const result = await response.json();
     console.log('File uploaded successfully to GitHub:', result.content.download_url);
     
+    // Return the raw GitHub URL for direct access
+    const rawUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/public/uploads/${fileName}`;
+    
     return {
-      url: result.content.download_url,
+      url: rawUrl,
       name: file.name
     };
   } catch (error) {
@@ -152,14 +156,17 @@ export const getAllUploadedFilesFromGitHub = async () => {
     
     return files
       .filter((file: any) => file.type === 'file' && file.name !== '.gitkeep')
-      .map((file: any) => ({
-        fileName: file.name,
-        originalName: file.name.split('_').slice(1).join('_'), // Remove timestamp prefix
-        uploadedAt: new Date().toISOString(), // GitHub doesn't provide upload time via this API
-        url: file.download_url,
-        size: file.size,
-        type: 'application/octet-stream' // Default type since GitHub doesn't store MIME type
-      }));
+      .map((file: any) => {
+        const rawUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main/public/uploads/${file.name}`;
+        return {
+          fileName: file.name,
+          originalName: file.name.split('_').slice(1).join('_'), // Remove timestamp prefix
+          uploadedAt: new Date().toISOString(), // GitHub doesn't provide upload time via this API
+          url: rawUrl,
+          size: file.size,
+          type: 'application/octet-stream' // Default type since GitHub doesn't store MIME type
+        };
+      });
   } catch (error) {
     console.error('Error retrieving file list from GitHub:', error);
     return [];
