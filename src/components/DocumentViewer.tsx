@@ -20,48 +20,42 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 }) => {
   const [error, setError] = useState<string>("");
   const [fileData, setFileData] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen && documentUrl) {
-      loadFile();
-    }
-  }, [isOpen, documentUrl]);
-
-  const loadFile = async () => {
-    setLoading(true);
-    setError("");
-    
-    try {
       // Extract filename from URL
       const fileName = documentUrl.split('/').pop() || '';
       console.log('Loading file for viewing:', fileName);
       
-      // Get file data for viewing from GitHub
-      const data = await getFileForViewing(fileName);
+      // Get file data for viewing
+      const data = getFileForViewing(fileName);
       if (data) {
         setFileData(data);
+        setError("");
       } else {
         setError("File not found");
       }
-    } catch (err) {
-      console.error('Error loading file:', err);
-      setError("Failed to load file");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [isOpen, documentUrl]);
 
   const handleDownload = () => {
     if (fileData) {
-      // For GitHub URLs, we can directly download
+      // Convert base64 to blob and download
+      const byteCharacters = atob(fileData.split(',')[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray]);
+      
       const link = document.createElement('a');
-      link.href = fileData;
+      link.href = URL.createObjectURL(blob);
       link.download = documentName;
-      link.target = '_blank';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
     }
   };
 
@@ -70,15 +64,6 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   };
 
   const renderDocumentPreview = () => {
-    if (loading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
-          <FileText className="h-16 w-16 mb-4 animate-pulse" />
-          <p className="text-lg">Loading document...</p>
-        </div>
-      );
-    }
-
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center h-[800px] text-red-500 space-y-4">
@@ -93,7 +78,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
           <FileText className="h-16 w-16 mb-4" />
-          <p className="text-lg">No file data available</p>
+          <p className="text-lg">Loading document...</p>
         </div>
       );
     }
