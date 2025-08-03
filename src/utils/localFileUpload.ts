@@ -10,27 +10,38 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
     
     console.log('Generated filename:', fileName);
     
-    // Create FormData for server upload
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('fileName', fileName);
+    // Convert file to base64 for storage
+    const base64Data = await convertFileToBase64(file);
     
-    // Upload to server
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData,
+    // Store file data in localStorage with metadata
+    const fileData = {
+      name: file.name,
+      originalName: file.name,
+      size: file.size,
+      type: file.type,
+      data: base64Data,
+      uploadedAt: new Date().toISOString()
+    };
+    
+    // Store in localStorage
+    const storageKey = `file_${fileName}`;
+    localStorage.setItem(storageKey, JSON.stringify(fileData));
+    
+    // Also maintain an index of all uploaded files
+    const fileIndex = JSON.parse(localStorage.getItem('file_index') || '[]');
+    fileIndex.push({
+      key: storageKey,
+      fileName: fileName,
+      originalName: file.name,
+      uploadedAt: fileData.uploadedAt
     });
+    localStorage.setItem('file_index', JSON.stringify(fileIndex));
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
-      throw new Error(errorData.message || 'Upload failed');
-    }
+    console.log('File stored successfully in localStorage');
     
-    const result = await response.json();
-    console.log('File uploaded successfully:', result);
-    
+    // Return a virtual URL that we can use to retrieve the file
     return {
-      url: result.path, // This will be like "/uploads/filename"
+      url: `/uploads/${fileName}`,
       name: file.name
     };
   } catch (error) {
@@ -39,31 +50,95 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
   }
 };
 
+const convertFileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Failed to convert file to base64'));
+      }
+    };
+    reader.onerror = error => reject(error);
+  });
+};
+
 export const getLocalFile = (fileName: string): { blob: Blob; name: string } | null => {
-  console.log('getLocalFile is deprecated - files are now stored on server');
-  return null;
+  try {
+    console.log('Retrieving file:', fileName);
+    
+    // Extract the actual filename from the URL path
+    const actualFileName = fileName.replace('/uploads/', '');
+    const storageKey = `file_${actualFileName}`;
+    
+    const storedData = localStorage.getItem(storageKey);
+    if (!storedData) {
+      console.log('File not found in localStorage');
+      return null;
+    }
+    
+    const fileData = JSON.parse(storedData);
+    
+    // Convert base64 back to blob
+    const base64Data = fileData.data.split(',')[1]; // Remove data URL prefix
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: fileData.type });
+    
+    console.log('File retrieved successfully');
+    return {
+      blob: blob,
+      name: fileData.originalName
+    };
+  } catch (error) {
+    console.error('File retrieval error:', error);
+    return null;
+  }
 };
 
 export const deleteFileLocally = async (filePath: string): Promise<void> => {
   try {
     console.log('Attempting to delete file:', filePath);
     
-    const response = await fetch('/api/delete', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ filePath }),
-    });
+    // Extract the actual filename from the URL path
+    const actualFileName = filePath.replace('/uploads/', '');
+    const storageKey = `file_${actualFileName}`;
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Delete failed' }));
-      throw new Error(errorData.message || 'Delete failed');
-    }
+    // Remove from localStorage
+    localStorage.removeItem(storageKey);
+    
+    // Update file index
+    const fileIndex = JSON.parse(localStorage.getItem('file_index') || '[]');
+    const updatedIndex = fileIndex.filter((item: any) => item.key !== storageKey);
+    localStorage.setItem('file_index', JSON.stringify(updatedIndex));
     
     console.log('File deleted successfully');
   } catch (error) {
     console.error('File delete error:', error);
     throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+// Helper function to get all uploaded files (useful for admin panel)
+export const getAllUploadedFiles = () => {
+  try {
+    const fileIndex = JSON.parse(localStorage.getItem('file_index') || '[]');
+    return fileIndex.map((item: any) => ({
+      fileName: item.fileName,
+      originalName: item.originalName,
+      uploadedAt: item.uploadedAt,
+      url: `/uploads/${item.fileName}`
+    }));
+  } catch (error) {
+    console.error('Error retrieving file list:', error);
+    return [];
   }
 };
