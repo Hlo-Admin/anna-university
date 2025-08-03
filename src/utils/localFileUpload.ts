@@ -12,6 +12,7 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
     
     // Convert file to base64 for storage
     const base64Data = await convertFileToBase64(file);
+    console.log('File converted to base64, size:', base64Data.length);
     
     // Store file data in localStorage with metadata
     const fileData = {
@@ -25,7 +26,12 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
     
     // Store in localStorage
     const storageKey = `file_${fileName}`;
+    console.log('Storing with key:', storageKey);
     localStorage.setItem(storageKey, JSON.stringify(fileData));
+    
+    // Verify storage
+    const storedData = localStorage.getItem(storageKey);
+    console.log('Verification - stored data exists:', !!storedData);
     
     // Also maintain an index of all uploaded files
     const fileIndex = JSON.parse(localStorage.getItem('file_index') || '[]');
@@ -36,12 +42,16 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
       uploadedAt: fileData.uploadedAt
     });
     localStorage.setItem('file_index', JSON.stringify(fileIndex));
+    console.log('Updated file index, total files:', fileIndex.length);
     
     console.log('File stored successfully in localStorage');
     
     // Return a virtual URL that we can use to retrieve the file
+    const virtualUrl = `local://uploads/${fileName}`;
+    console.log('Returning virtual URL:', virtualUrl);
+    
     return {
-      url: `/uploads/${fileName}`,
+      url: virtualUrl,
       name: file.name
     };
   } catch (error) {
@@ -69,17 +79,38 @@ export const getLocalFile = (fileName: string): { blob: Blob; name: string } | n
   try {
     console.log('Retrieving file:', fileName);
     
-    // Extract the actual filename from the URL path
-    const actualFileName = fileName.replace('/uploads/', '');
+    // Handle both local:// URLs and direct /uploads/ paths
+    let actualFileName = fileName;
+    if (fileName.startsWith('local://uploads/')) {
+      actualFileName = fileName.replace('local://uploads/', '');
+    } else if (fileName.startsWith('/uploads/')) {
+      actualFileName = fileName.replace('/uploads/', '');
+    }
+    
+    console.log('Actual filename to search:', actualFileName);
+    
     const storageKey = `file_${actualFileName}`;
+    console.log('Looking for storage key:', storageKey);
+    
+    // Debug: List all localStorage keys that start with 'file_'
+    const allKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('file_')) {
+        allKeys.push(key);
+      }
+    }
+    console.log('All file keys in localStorage:', allKeys);
     
     const storedData = localStorage.getItem(storageKey);
     if (!storedData) {
-      console.log('File not found in localStorage');
+      console.log('File not found in localStorage for key:', storageKey);
       return null;
     }
     
+    console.log('Found stored data, parsing...');
     const fileData = JSON.parse(storedData);
+    console.log('File data parsed successfully, type:', fileData.type);
     
     // Convert base64 back to blob
     const base64Data = fileData.data.split(',')[1]; // Remove data URL prefix
@@ -93,7 +124,7 @@ export const getLocalFile = (fileName: string): { blob: Blob; name: string } | n
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: fileData.type });
     
-    console.log('File retrieved successfully');
+    console.log('File retrieved successfully, blob size:', blob.size);
     return {
       blob: blob,
       name: fileData.originalName
@@ -108,9 +139,16 @@ export const deleteFileLocally = async (filePath: string): Promise<void> => {
   try {
     console.log('Attempting to delete file:', filePath);
     
-    // Extract the actual filename from the URL path
-    const actualFileName = filePath.replace('/uploads/', '');
+    // Handle both local:// URLs and direct /uploads/ paths
+    let actualFileName = filePath;
+    if (filePath.startsWith('local://uploads/')) {
+      actualFileName = filePath.replace('local://uploads/', '');
+    } else if (filePath.startsWith('/uploads/')) {
+      actualFileName = filePath.replace('/uploads/', '');
+    }
+    
     const storageKey = `file_${actualFileName}`;
+    console.log('Deleting storage key:', storageKey);
     
     // Remove from localStorage
     localStorage.removeItem(storageKey);
