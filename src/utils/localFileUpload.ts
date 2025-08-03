@@ -8,26 +8,27 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `${timestamp}_${sanitizedName}`;
     
-    // Create FormData to send file to local upload endpoint
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('fileName', fileName);
+    // Convert file to base64 for local storage
+    const fileBuffer = await file.arrayBuffer();
+    const base64String = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+    const mimeType = file.type || 'application/octet-stream';
     
-    // Upload to local server endpoint
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    });
+    // Store in localStorage with metadata
+    const fileData = {
+      name: file.name,
+      fileName: fileName,
+      mimeType: mimeType,
+      data: base64String,
+      uploadedAt: new Date().toISOString()
+    };
     
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
-    }
+    localStorage.setItem(`file_${fileName}`, JSON.stringify(fileData));
     
-    const result = await response.json();
-    console.log('File uploaded locally:', result);
+    console.log('File stored locally:', fileName);
     
+    // Return a local URL that we can use to retrieve the file
     return {
-      url: result.path, // This will be something like /uploads/filename.ext
+      url: `local://${fileName}`,
       name: file.name
     };
   } catch (error) {
@@ -36,21 +37,36 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
   }
 };
 
-export const deleteFileLocally = async (filePath: string): Promise<void> => {
+export const getLocalFile = (fileName: string): { blob: Blob; name: string } | null => {
   try {
-    const response = await fetch('/api/delete', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ filePath })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Delete failed: ${response.statusText}`);
+    const fileData = localStorage.getItem(`file_${fileName}`);
+    if (!fileData) {
+      console.error('File not found in localStorage:', fileName);
+      return null;
     }
     
-    console.log('File deleted successfully:', filePath);
+    const parsed = JSON.parse(fileData);
+    const binaryString = atob(parsed.data);
+    const bytes = new Uint8Array(binaryString.length);
+    
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    const blob = new Blob([bytes], { type: parsed.mimeType });
+    return { blob, name: parsed.name };
+  } catch (error) {
+    console.error('Error retrieving local file:', error);
+    return null;
+  }
+};
+
+export const deleteFileLocally = async (filePath: string): Promise<void> => {
+  try {
+    // Extract filename from local:// URL
+    const fileName = filePath.replace('local://', '');
+    localStorage.removeItem(`file_${fileName}`);
+    console.log('File deleted successfully:', fileName);
   } catch (error) {
     console.error('Local file delete error:', error);
     throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
