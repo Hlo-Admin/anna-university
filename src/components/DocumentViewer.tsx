@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, X } from "lucide-react";
-import { getLocalFile } from "@/utils/localFileUpload";
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -18,58 +17,32 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentUrl,
   documentName
 }) => {
-  const [blobUrl, setBlobUrl] = useState<string>("");
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    if (documentUrl.startsWith('local://')) {
-      const fileName = documentUrl.replace('local://', '');
-      const fileData = getLocalFile(fileName);
-      
-      if (fileData) {
-        const url = URL.createObjectURL(fileData.blob);
-        setBlobUrl(url);
-        setError("");
-        
-        return () => {
-          URL.revokeObjectURL(url);
-        };
-      } else {
-        setError("File not found in local storage");
-      }
-    } else {
-      setBlobUrl(documentUrl);
-    }
+    // Reset error when document changes
+    setError("");
   }, [documentUrl]);
 
   const handleDownload = async () => {
     try {
-      let blob: Blob;
-      let filename = documentName;
-
-      if (documentUrl.startsWith('local://')) {
-        const fileName = documentUrl.replace('local://', '');
-        const fileData = getLocalFile(fileName);
-        if (!fileData) {
-          throw new Error('File not found');
-        }
-        blob = fileData.blob;
-        filename = fileData.name;
-      } else {
-        const response = await fetch(documentUrl);
-        blob = await response.blob();
+      const response = await fetch(documentUrl);
+      if (!response.ok) {
+        throw new Error('Failed to download file');
       }
-
+      
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = filename;
+      link.download = documentName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
+      setError('Failed to download file');
     }
   };
 
@@ -88,11 +61,11 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       );
     }
 
-    if (!blobUrl) {
+    if (!documentUrl) {
       return (
         <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
           <FileText className="h-16 w-16 mb-4" />
-          <p className="text-lg">Loading file...</p>
+          <p className="text-lg">No document to display</p>
         </div>
       );
     }
@@ -100,7 +73,6 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     const extension = getFileExtension(documentName);
     
     console.log('Document URL:', documentUrl);
-    console.log('Blob URL:', blobUrl);
     console.log('Document Name:', documentName);
     console.log('File Extension:', extension);
     
@@ -108,11 +80,11 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="w-full h-[800px]">
           <iframe
-            src={`${blobUrl}#view=FitH`}
+            src={`${documentUrl}#view=FitH`}
             className="w-full h-full border rounded"
             title={documentName}
-            onError={(e) => {
-              console.error('PDF iframe error:', e);
+            onError={() => {
+              setError('Failed to load PDF');
             }}
           />
         </div>
@@ -121,13 +93,11 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="flex justify-center items-center w-full h-[800px]">
           <img
-            src={blobUrl}
+            src={documentUrl}
             alt={documentName}
             className="max-w-full max-h-full object-contain"
-            onError={(e) => {
-              console.error('Image load error:', e);
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
+            onError={() => {
+              setError('Failed to load image');
             }}
           />
         </div>
