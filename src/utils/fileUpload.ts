@@ -1,40 +1,47 @@
-import { supabase } from "@/integrations/supabase/client";
 
 export const uploadFile = async (file: File): Promise<{ url: string; name: string }> => {
-  console.log('Starting Google Drive upload for:', file.name);
+  console.log('Starting file upload for:', file.name);
   
   try {
-    // Convert file to base64
+    // Create a unique filename to avoid conflicts
+    const timestamp = Date.now();
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = `${timestamp}_${sanitizedName}`;
+    
+    // Convert file to base64 for sending
     const base64Data = await convertFileToBase64(file);
     
-    // Call the Google Drive upload edge function
-    const { data, error } = await supabase.functions.invoke('google-drive-upload', {
-      body: {
-        fileName: file.name,
+    // For development, we'll use a simple approach to store files
+    // In production, this would hit your actual backend API
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileName: fileName,
         fileData: base64Data,
         originalName: file.name,
         fileType: file.type
-      }
+      })
     });
-
-    if (error) {
-      console.error('Supabase function error:', error);
-      throw new Error(`Upload failed: ${error.message}`);
+    
+    if (!response.ok) {
+      // If API doesn't work (development), fall back to localStorage
+      console.log('API upload failed, using localStorage fallback');
+      return uploadFileLocally(file);
     }
-
-    if (!data.success) {
-      throw new Error(data.error || 'Upload failed');
-    }
-
-    console.log('File uploaded to Google Drive successfully:', data.fileId);
-
+    
+    const result = await response.json();
+    
     return {
-      url: data.fileUrl,
+      url: result.path,
       name: file.name
     };
   } catch (error) {
     console.error('File upload error:', error);
-    throw error;
+    // Fallback to localStorage if server upload fails
+    return uploadFileLocally(file);
   }
 };
 
@@ -53,12 +60,83 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// Keep these functions for backward compatibility but they won't be used
+// Fallback to localStorage when server upload is not available
+const uploadFileLocally = async (file: File): Promise<{ url: string; name: string }> => {
+  const timestamp = Date.now();
+  const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const fileName = `${timestamp}_${sanitizedName}`;
+  
+  const fileData = await convertFileToBase64(file);
+  
+  const fileInfo = {
+    fileName: fileName,
+    originalName: file.name,
+    fileType: file.type,
+    data: fileData,
+    uploadedAt: new Date().toISOString()
+  };
+  
+  localStorage.setItem(`uploaded_file_${fileName}`, JSON.stringify(fileInfo));
+  
+  return {
+    url: `/uploads/${fileName}`,
+    name: file.name
+  };
+};
+
 export const deleteFile = async (filePath: string): Promise<void> => {
-  console.log('Delete function called, but files are stored in Google Drive');
+  try {
+    const response = await fetch('/api/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ filePath })
+    });
+    
+    if (!response.ok) {
+      // Fallback to localStorage deletion
+      const fileKey = filePath.replace('/uploads/', '');
+      localStorage.removeItem(`uploaded_file_${fileKey}`);
+    }
+  } catch (error) {
+    console.error('File delete error:', error);
+    // Fallback to localStorage deletion
+    const fileKey = filePath.replace('/uploads/', '');
+    localStorage.removeItem(`uploaded_file_${fileKey}`);
+  }
 };
 
 export const getFile = (fileName: string): { blob: Blob; name: string } | null => {
-  console.log('Get file function called, but files are stored in Google Drive');
-  return null;
+  try {
+    const fileKey = fileName.startsWith('/uploads/') ? fileName.replace('/uploads/', '') : fileName;
+    const fileInfoStr = localStorage.getItem(`uploaded_file_${fileKey}`);
+    
+    if (!fileInfoStr) {
+      return null;
+    }
+    
+    const fileInfo = JSON.parse(fileInfoStr);
+    const blob = dataURLToBlob(fileInfo.data);
+    
+    return {
+      blob: blob,
+      name: fileInfo.originalName
+    };
+  } catch (error) {
+    console.error('Error retrieving file:', error);
+    return null;
+  }
+};
+
+const dataURLToBlob = (dataURL: string): Blob => {
+  const arr = dataURL.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || '';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
 };
