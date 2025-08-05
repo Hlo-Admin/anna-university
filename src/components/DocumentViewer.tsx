@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, X } from "lucide-react";
-import { getLocalFile } from "@/utils/localFileUpload";
+import { getFile } from "@/utils/fileUpload";
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -25,13 +25,14 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     if (isOpen && documentUrl) {
       // Check if this is a local file stored in localStorage
       if (documentUrl.startsWith('/uploads/')) {
-        const localFile = getLocalFile(documentUrl);
+        const localFile = getFile(documentUrl);
         if (localFile) {
           const blobUrl = URL.createObjectURL(localFile.blob);
           setPreviewUrl(blobUrl);
           console.log('Created blob URL for preview:', blobUrl);
         } else {
-          setError('File not found in local storage');
+          // Try to access the file directly from the server
+          setPreviewUrl(documentUrl);
         }
       } else {
         setPreviewUrl(documentUrl);
@@ -48,7 +49,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   const handleDownload = () => {
     if (documentUrl.startsWith('/uploads/')) {
-      const localFile = getLocalFile(documentUrl);
+      const localFile = getFile(documentUrl);
       if (localFile) {
         const url = URL.createObjectURL(localFile.blob);
         const link = document.createElement('a');
@@ -62,7 +63,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       }
     }
     
-    // Fallback for regular URLs
+    // Fallback for regular URLs or server files
     const link = document.createElement('a');
     link.href = previewUrl || documentUrl;
     link.download = documentName;
