@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, X } from "lucide-react";
-import { getFileForViewing } from "@/utils/localFileUpload";
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -19,44 +18,14 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentName
 }) => {
   const [error, setError] = useState<string>("");
-  const [fileData, setFileData] = useState<string>("");
-
-  useEffect(() => {
-    if (isOpen && documentUrl) {
-      // Extract filename from URL
-      const fileName = documentUrl.split('/').pop() || '';
-      console.log('Loading file for viewing:', fileName);
-      
-      // Get file data for viewing
-      const data = getFileForViewing(fileName);
-      if (data) {
-        setFileData(data);
-        setError("");
-      } else {
-        setError("File not found");
-      }
-    }
-  }, [isOpen, documentUrl]);
 
   const handleDownload = () => {
-    if (fileData) {
-      // Convert base64 to blob and download
-      const byteCharacters = atob(fileData.split(',')[1]);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray]);
-      
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = documentName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
-    }
+    const link = document.createElement('a');
+    link.href = documentUrl;
+    link.download = documentName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const getFileExtension = (filename: string) => {
@@ -74,17 +43,18 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       );
     }
 
-    if (!fileData) {
+    if (!documentUrl) {
       return (
         <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
           <FileText className="h-16 w-16 mb-4" />
-          <p className="text-lg">Loading document...</p>
+          <p className="text-lg">No document to display</p>
         </div>
       );
     }
 
     const extension = getFileExtension(documentName);
     
+    console.log('Document URL:', documentUrl);
     console.log('Document Name:', documentName);
     console.log('File Extension:', extension);
     
@@ -92,7 +62,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="w-full h-[800px]">
           <iframe
-            src={`${fileData}#view=FitH`}
+            src={`${documentUrl}#view=FitH`}
             className="w-full h-full border rounded"
             title={documentName}
             onError={() => {
@@ -105,7 +75,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="flex justify-center items-center w-full h-[800px]">
           <img
-            src={fileData}
+            src={documentUrl}
             alt={documentName}
             className="max-w-full max-h-full object-contain"
             onError={() => {

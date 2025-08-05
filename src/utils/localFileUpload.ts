@@ -1,5 +1,4 @@
 
-// Simple file upload that stores files in /public/uploads and commits them to GitHub
 export const uploadFileLocally = async (file: File): Promise<{ url: string; name: string }> => {
   console.log('Starting file upload for:', file.name);
   
@@ -11,97 +10,42 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
     
     console.log('Generated filename:', fileName);
     
-    // Convert file to base64
+    // Convert file to base64 for transfer
     const base64Data = await convertFileToBase64(file);
+    console.log('File converted to base64, size:', base64Data.length);
     
-    console.log('File converted to base64, storing in public/uploads...');
-    
-    // Store the file data in localStorage temporarily (since we can't write to /public directly from frontend)
-    // In a real deployment, this would be handled by the build process
-    const fileData = {
-      fileName,
-      originalName: file.name,
-      base64Data,
-      uploadedAt: new Date().toISOString(),
-      size: file.size,
-      type: file.type
-    };
-    
-    // Store in localStorage with a special prefix for uploaded files
-    localStorage.setItem(`uploaded_file_${fileName}`, JSON.stringify(fileData));
-    
-    // Also store in a list for easy retrieval
-    const existingFiles = JSON.parse(localStorage.getItem('uploaded_files_list') || '[]');
-    existingFiles.push({
-      fileName,
-      originalName: file.name,
-      uploadedAt: new Date().toISOString(),
-      url: `/uploads/${fileName}`, // This will be the public URL
-      size: file.size,
-      type: file.type
+    // Write file to public/uploads directory
+    const response = await fetch('/api/write-file', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileName: fileName,
+        fileData: base64Data,
+        originalName: file.name,
+        fileType: file.type
+      })
     });
-    localStorage.setItem('uploaded_files_list', JSON.stringify(existingFiles));
     
-    console.log('File uploaded successfully');
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    console.log('File uploaded successfully:', result);
+    
+    // Return the public URL
+    const publicUrl = `/uploads/${fileName}`;
+    console.log('Returning public URL:', publicUrl);
     
     return {
-      url: `/uploads/${fileName}`, // Return public URL path
+      url: publicUrl,
       name: file.name
     };
   } catch (error) {
     console.error('File upload error:', error);
     throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-};
-
-export const deleteFileLocally = async (fileName: string): Promise<void> => {
-  console.log('Deleting file:', fileName);
-  
-  try {
-    // Remove from localStorage
-    localStorage.removeItem(`uploaded_file_${fileName}`);
-    
-    // Remove from files list
-    const existingFiles = JSON.parse(localStorage.getItem('uploaded_files_list') || '[]');
-    const updatedFiles = existingFiles.filter((file: any) => file.fileName !== fileName);
-    localStorage.setItem('uploaded_files_list', JSON.stringify(updatedFiles));
-    
-    console.log('File deleted successfully');
-  } catch (error) {
-    console.error('File delete error:', error);
-    throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-};
-
-export const getAllUploadedFiles = async () => {
-  try {
-    const filesList = JSON.parse(localStorage.getItem('uploaded_files_list') || '[]');
-    return filesList.map((file: any) => ({
-      fileName: file.fileName,
-      originalName: file.originalName,
-      uploadedAt: file.uploadedAt,
-      url: file.url,
-      size: file.size,
-      type: file.type || 'application/octet-stream'
-    }));
-  } catch (error) {
-    console.error('Error retrieving file list:', error);
-    return [];
-  }
-};
-
-// Helper function to get file data for viewing (since we can't directly access /public files)
-export const getFileForViewing = (fileName: string): string | null => {
-  try {
-    const fileData = localStorage.getItem(`uploaded_file_${fileName}`);
-    if (fileData) {
-      const parsed = JSON.parse(fileData);
-      return parsed.base64Data; // Return base64 data for viewing
-    }
-    return null;
-  } catch (error) {
-    console.error('Error getting file for viewing:', error);
-    return null;
   }
 };
 
@@ -120,8 +64,51 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-// This function is no longer needed since files are stored locally
 export const getLocalFile = (fileName: string): { blob: Blob; name: string } | null => {
-  console.warn('getLocalFile is deprecated');
-  return null;
+  // Since files are now stored in public/uploads, we don't need special handling
+  // The browser can access them directly via their URL
+  console.log('Files are now stored in public/uploads, accessible via URL:', fileName);
+  return null; // Not needed for server-stored files
+};
+
+export const deleteFileLocally = async (filePath: string): Promise<void> => {
+  try {
+    console.log('Attempting to delete file:', filePath);
+    
+    // Extract filename from path
+    const fileName = filePath.replace('/uploads/', '');
+    
+    const response = await fetch('/api/delete-file', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fileName: fileName
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Delete failed: ${response.statusText}`);
+    }
+    
+    console.log('File deleted successfully');
+  } catch (error) {
+    console.error('File delete error:', error);
+    throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+// Helper function to get all uploaded files
+export const getAllUploadedFiles = async () => {
+  try {
+    const response = await fetch('/api/list-files');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch files: ${response.statusText}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error retrieving file list:', error);
+    return [];
+  }
 };
