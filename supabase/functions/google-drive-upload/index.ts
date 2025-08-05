@@ -32,6 +32,10 @@ serve(async (req) => {
       throw new Error('Missing Google service account credentials')
     }
     
+    console.log('Service account email:', serviceAccountEmail)
+    console.log('Project ID:', projectId)
+    console.log('Private key length:', privateKey.length)
+    
     // Create JWT for Google OAuth
     const header = {
       alg: 'RS256',
@@ -47,10 +51,13 @@ serve(async (req) => {
       iat: now
     }
     
-    // Clean and format the private key
+    // Clean and format the private key - handle both escaped and unescaped newlines
     let cleanPrivateKey = privateKey.replace(/\\n/g, '\n')
     
-    // Ensure the key has proper formatting
+    console.log('Key starts with BEGIN:', cleanPrivateKey.startsWith('-----BEGIN PRIVATE KEY-----'))
+    console.log('Key ends with END:', cleanPrivateKey.endsWith('-----END PRIVATE KEY-----'))
+    
+    // Ensure proper formatting
     if (!cleanPrivateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
       cleanPrivateKey = '-----BEGIN PRIVATE KEY-----\n' + cleanPrivateKey
     }
@@ -58,15 +65,29 @@ serve(async (req) => {
       cleanPrivateKey = cleanPrivateKey + '\n-----END PRIVATE KEY-----'
     }
     
-    // Remove the header and footer for processing
-    const keyContent = cleanPrivateKey
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
+    // Extract the base64 content between the headers
+    const keyLines = cleanPrivateKey.split('\n')
+    const keyContent = keyLines
+      .filter(line => line && !line.includes('-----BEGIN') && !line.includes('-----END'))
+      .join('')
       .replace(/\s/g, '')
     
-    // Convert base64 to binary
-    const binaryKey = Uint8Array.from(atob(keyContent), c => c.charCodeAt(0))
+    console.log('Extracted key content length:', keyContent.length)
     
+    // Convert base64 to ArrayBuffer
+    let binaryKey: Uint8Array
+    try {
+      const binaryString = atob(keyContent)
+      binaryKey = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        binaryKey[i] = binaryString.charCodeAt(i)
+      }
+    } catch (error) {
+      console.error('Base64 decode error:', error)
+      throw new Error(`Failed to decode private key: ${error.message}`)
+    }
+    
+    // Import the private key
     const keyData = await crypto.subtle.importKey(
       'pkcs8',
       binaryKey,
@@ -78,6 +99,9 @@ serve(async (req) => {
       ['sign']
     )
     
+    console.log('Successfully imported private key')
+    
+    // Create JWT signature
     const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
     const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
     const signatureInput = `${encodedHeader}.${encodedPayload}`
@@ -92,6 +116,8 @@ serve(async (req) => {
       .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
     
     const jwt = `${signatureInput}.${encodedSignature}`
+    
+    console.log('Created JWT successfully')
     
     // Get access token
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -108,7 +134,7 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error('Token request failed:', errorText)
-      throw new Error(`Failed to get access token: ${tokenResponse.status}`)
+      throw new Error(`Failed to get access token: ${tokenResponse.status} - ${errorText}`)
     }
     
     const tokenData = await tokenResponse.json()
@@ -116,13 +142,26 @@ serve(async (req) => {
     
     console.log('Successfully obtained access token')
     
-    // Convert base64 to blob
-    const base64Data = fileData.split(',')[1] || fileData
-    const binaryData = atob(base64Data)
-    const bytes = new Uint8Array(binaryData.length)
-    for (let i = 0; i < binaryData.length; i++) {
-      bytes[i] = binaryData.charCodeAt(i)
+    // Process file data - handle both data URL format and raw base64
+    let base64Data = fileData
+    if (fileData.includes(',')) {
+      base64Data = fileData.split(',')[1]
     }
+    
+    // Convert base64 to binary data
+    let bytes: Uint8Array
+    try {
+      const binaryData = atob(base64Data)
+      bytes = new Uint8Array(binaryData.length)
+      for (let i = 0; i < binaryData.length; i++) {
+        bytes[i] = binaryData.charCodeAt(i)
+      }
+    } catch (error) {
+      console.error('File data decode error:', error)
+      throw new Error(`Failed to decode file data: ${error.message}`)
+    }
+    
+    console.log('File size:', bytes.length, 'bytes')
     
     // Upload to Google Drive
     const folderId = '15mm6UCZtZHw4nLylj0_-jfJeLZGr0k0W' // Your folder ID
@@ -150,6 +189,8 @@ serve(async (req) => {
     fullBody.set(bytes, bodyBytes.length)
     fullBody.set(closeBytes, bodyBytes.length + bytes.length)
     
+    console.log('Uploading file to Google Drive...')
+    
     const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
       method: 'POST',
       headers: {
@@ -162,14 +203,14 @@ serve(async (req) => {
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text()
       console.error('Upload failed:', errorText)
-      throw new Error(`Failed to upload to Google Drive: ${uploadResponse.status}`)
+      throw new Error(`Failed to upload to Google Drive: ${uploadResponse.status} - ${errorText}`)
     }
     
     const uploadResult = await uploadResponse.json()
     console.log('Successfully uploaded to Google Drive:', uploadResult.id)
     
     // Make the file publicly viewable
-    await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
+    const permissionResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${uploadResult.id}/permissions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -180,6 +221,11 @@ serve(async (req) => {
         type: 'anyone'
       }),
     })
+    
+    if (!permissionResponse.ok) {
+      console.warn('Failed to set file permissions:', await permissionResponse.text())
+      // Don't fail the upload if permissions can't be set
+    }
     
     return new Response(JSON.stringify({
       success: true,
