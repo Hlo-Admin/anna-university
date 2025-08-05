@@ -47,11 +47,29 @@ serve(async (req) => {
       iat: now
     }
     
-    // Convert private key for crypto
-    const privateKeyFormatted = privateKey.replace(/\\n/g, '\n')
+    // Clean and format the private key
+    let cleanPrivateKey = privateKey.replace(/\\n/g, '\n')
+    
+    // Ensure the key has proper formatting
+    if (!cleanPrivateKey.startsWith('-----BEGIN PRIVATE KEY-----')) {
+      cleanPrivateKey = '-----BEGIN PRIVATE KEY-----\n' + cleanPrivateKey
+    }
+    if (!cleanPrivateKey.endsWith('-----END PRIVATE KEY-----')) {
+      cleanPrivateKey = cleanPrivateKey + '\n-----END PRIVATE KEY-----'
+    }
+    
+    // Remove the header and footer for processing
+    const keyContent = cleanPrivateKey
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .replace(/\s/g, '')
+    
+    // Convert base64 to binary
+    const binaryKey = Uint8Array.from(atob(keyContent), c => c.charCodeAt(0))
+    
     const keyData = await crypto.subtle.importKey(
       'pkcs8',
-      new TextEncoder().encode(privateKeyFormatted),
+      binaryKey,
       {
         name: 'RSASSA-PKCS1-v1_5',
         hash: 'SHA-256',
