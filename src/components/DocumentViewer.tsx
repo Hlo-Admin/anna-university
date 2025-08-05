@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, X } from "lucide-react";
-import { getFile } from "@/utils/fileUpload";
+import { Download, FileText, X, ExternalLink } from "lucide-react";
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -19,57 +18,24 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentName
 }) => {
   const [error, setError] = useState<string>("");
-  const [previewUrl, setPreviewUrl] = useState<string>("");
-
-  useEffect(() => {
-    if (isOpen && documentUrl) {
-      // Check if this is a local file stored in localStorage
-      if (documentUrl.startsWith('/uploads/')) {
-        const localFile = getFile(documentUrl);
-        if (localFile) {
-          const blobUrl = URL.createObjectURL(localFile.blob);
-          setPreviewUrl(blobUrl);
-          console.log('Created blob URL for preview:', blobUrl);
-        } else {
-          // Try to access the file directly from the server
-          setPreviewUrl(documentUrl);
-        }
-      } else {
-        setPreviewUrl(documentUrl);
-      }
-    }
-
-    // Cleanup blob URL when component unmounts or dialog closes
-    return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [isOpen, documentUrl]);
 
   const handleDownload = () => {
-    if (documentUrl.startsWith('/uploads/')) {
-      const localFile = getFile(documentUrl);
-      if (localFile) {
-        const url = URL.createObjectURL(localFile.blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = documentName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+    // For Google Drive files, extract file ID and create download URL
+    if (documentUrl.includes('drive.google.com/file/d/')) {
+      const fileId = documentUrl.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+      if (fileId) {
+        const downloadUrl = `https://drive.google.com/uc?id=${fileId}&export=download`;
+        window.open(downloadUrl, '_blank');
         return;
       }
     }
     
-    // Fallback for regular URLs or server files
-    const link = document.createElement('a');
-    link.href = previewUrl || documentUrl;
-    link.download = documentName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Fallback for other URLs
+    window.open(documentUrl, '_blank');
+  };
+
+  const handleViewInGoogleDrive = () => {
+    window.open(documentUrl, '_blank');
   };
 
   const getFileExtension = (filename: string) => {
@@ -87,7 +53,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       );
     }
 
-    if (!previewUrl && !documentUrl) {
+    if (!documentUrl) {
       return (
         <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
           <FileText className="h-16 w-16 mb-4" />
@@ -97,61 +63,54 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     }
 
     const extension = getFileExtension(documentName);
-    const urlToUse = previewUrl || documentUrl;
     
-    console.log('Document URL:', urlToUse);
-    console.log('Document Name:', documentName);
-    console.log('File Extension:', extension);
-    
-    if (extension === 'pdf') {
+    // For Google Drive files, show a preview message and buttons
+    if (documentUrl.includes('drive.google.com')) {
       return (
-        <div className="w-full h-[800px]">
-          <iframe
-            src={`${urlToUse}#view=FitH`}
-            className="w-full h-full border rounded"
-            title={documentName}
-            onError={() => {
-              setError('Failed to load PDF');
-            }}
-          />
-        </div>
-      );
-    } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(extension)) {
-      return (
-        <div className="flex justify-center items-center w-full h-[800px]">
-          <img
-            src={urlToUse}
-            alt={documentName}
-            className="max-w-full max-h-full object-contain"
-            onError={() => {
-              setError('Failed to load image');
-            }}
-          />
-        </div>
-      );
-    } else if (['doc', 'docx'].includes(extension)) {
-      return (
-        <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
-          <FileText className="h-16 w-16 mb-4" />
-          <p className="text-lg">Preview not available for Word documents</p>
-          <p className="text-sm text-gray-400">{documentName}</p>
-          <Button onClick={handleDownload} variant="outline">
-            Download to View
-          </Button>
-        </div>
-      );
-    } else {
-      return (
-        <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
-          <FileText className="h-16 w-16 mb-4" />
-          <p className="text-lg">Preview not available for this file type</p>
-          <p className="text-sm text-gray-400">{documentName}</p>
-          <Button onClick={handleDownload} variant="outline">
-            Download File
-          </Button>
+        <div className="flex flex-col items-center justify-center h-[800px] text-gray-600 space-y-6">
+          <FileText className="h-20 w-20 mb-4 text-blue-600" />
+          <div className="text-center space-y-2">
+            <p className="text-xl font-semibold">Document stored in Google Drive</p>
+            <p className="text-lg text-gray-500">{documentName}</p>
+            <p className="text-sm text-gray-400">File type: {extension.toUpperCase()}</p>
+          </div>
+          
+          <div className="flex gap-4 mt-8">
+            <Button 
+              onClick={handleViewInGoogleDrive} 
+              className="flex items-center gap-2"
+            >
+              <ExternalLink className="h-4 w-4" />
+              View in Google Drive
+            </Button>
+            <Button 
+              onClick={handleDownload} 
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download File
+            </Button>
+          </div>
+          
+          <div className="text-xs text-gray-400 mt-4 text-center max-w-md">
+            This document is securely stored in Google Drive. Click "View in Google Drive" to preview the document or "Download File" to save it to your device.
+          </div>
         </div>
       );
     }
+
+    // Fallback for non-Google Drive files
+    return (
+      <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
+        <FileText className="h-16 w-16 mb-4" />
+        <p className="text-lg">Preview not available</p>
+        <p className="text-sm text-gray-400">{documentName}</p>
+        <Button onClick={handleDownload} variant="outline">
+          Download File
+        </Button>
+      </div>
+    );
   };
 
   return (
@@ -164,6 +123,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
               <DialogDescription>{documentName}</DialogDescription>
             </div>
             <div className="flex gap-2">
+              {documentUrl.includes('drive.google.com') && (
+                <Button onClick={handleViewInGoogleDrive} variant="outline" size="sm">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in Drive
+                </Button>
+              )}
               <Button onClick={handleDownload} variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
                 Download
