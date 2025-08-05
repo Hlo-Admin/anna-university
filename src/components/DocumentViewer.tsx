@@ -1,8 +1,9 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, X } from "lucide-react";
+import { getLocalFile } from "@/utils/localFileUpload";
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -18,10 +19,52 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentName
 }) => {
   const [error, setError] = useState<string>("");
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (isOpen && documentUrl) {
+      // Check if this is a local file stored in localStorage
+      if (documentUrl.startsWith('/uploads/')) {
+        const localFile = getLocalFile(documentUrl);
+        if (localFile) {
+          const blobUrl = URL.createObjectURL(localFile.blob);
+          setPreviewUrl(blobUrl);
+          console.log('Created blob URL for preview:', blobUrl);
+        } else {
+          setError('File not found in local storage');
+        }
+      } else {
+        setPreviewUrl(documentUrl);
+      }
+    }
+
+    // Cleanup blob URL when component unmounts or dialog closes
+    return () => {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [isOpen, documentUrl]);
 
   const handleDownload = () => {
+    if (documentUrl.startsWith('/uploads/')) {
+      const localFile = getLocalFile(documentUrl);
+      if (localFile) {
+        const url = URL.createObjectURL(localFile.blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = documentName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return;
+      }
+    }
+    
+    // Fallback for regular URLs
     const link = document.createElement('a');
-    link.href = documentUrl;
+    link.href = previewUrl || documentUrl;
     link.download = documentName;
     document.body.appendChild(link);
     link.click();
@@ -43,7 +86,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       );
     }
 
-    if (!documentUrl) {
+    if (!previewUrl && !documentUrl) {
       return (
         <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
           <FileText className="h-16 w-16 mb-4" />
@@ -53,8 +96,9 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     }
 
     const extension = getFileExtension(documentName);
+    const urlToUse = previewUrl || documentUrl;
     
-    console.log('Document URL:', documentUrl);
+    console.log('Document URL:', urlToUse);
     console.log('Document Name:', documentName);
     console.log('File Extension:', extension);
     
@@ -62,7 +106,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="w-full h-[800px]">
           <iframe
-            src={`${documentUrl}#view=FitH`}
+            src={`${urlToUse}#view=FitH`}
             className="w-full h-full border rounded"
             title={documentName}
             onError={() => {
@@ -75,7 +119,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="flex justify-center items-center w-full h-[800px]">
           <img
-            src={documentUrl}
+            src={urlToUse}
             alt={documentName}
             className="max-w-full max-h-full object-contain"
             onError={() => {

@@ -10,37 +10,34 @@ export const uploadFileLocally = async (file: File): Promise<{ url: string; name
     
     console.log('Generated filename:', fileName);
     
-    // Convert file to base64 for transfer
-    const base64Data = await convertFileToBase64(file);
-    console.log('File converted to base64, size:', base64Data.length);
+    // For development, we'll store the file data in localStorage
+    // and create a blob URL for immediate access
+    const fileData = await convertFileToBase64(file);
     
-    // Write file to public/uploads directory
-    const response = await fetch('/api/write-file', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fileName: fileName,
-        fileData: base64Data,
-        originalName: file.name,
-        fileType: file.type
-      })
-    });
+    // Store file metadata and data in localStorage
+    const fileInfo = {
+      fileName: fileName,
+      originalName: file.name,
+      fileType: file.type,
+      data: fileData,
+      uploadedAt: new Date().toISOString()
+    };
     
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
-    }
+    // Store in localStorage with a key pattern
+    localStorage.setItem(`uploaded_file_${fileName}`, JSON.stringify(fileInfo));
     
-    const result = await response.json();
-    console.log('File uploaded successfully:', result);
+    // Create a blob URL for immediate access
+    const blob = dataURLToBlob(fileData);
+    const blobUrl = URL.createObjectURL(blob);
     
-    // Return the public URL
-    const publicUrl = `/uploads/${fileName}`;
-    console.log('Returning public URL:', publicUrl);
+    // Store the blob URL mapping
+    localStorage.setItem(`blob_url_${fileName}`, blobUrl);
     
+    console.log('File uploaded successfully to localStorage');
+    
+    // Return a local reference
     return {
-      url: publicUrl,
+      url: `/uploads/${fileName}`,
       name: file.name
     };
   } catch (error) {
@@ -64,32 +61,55 @@ const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+const dataURLToBlob = (dataURL: string): Blob => {
+  const arr = dataURL.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || '';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new Blob([u8arr], { type: mime });
+};
+
 export const getLocalFile = (fileName: string): { blob: Blob; name: string } | null => {
-  // Since files are now stored in public/uploads, we don't need special handling
-  // The browser can access them directly via their URL
-  console.log('Files are now stored in public/uploads, accessible via URL:', fileName);
-  return null; // Not needed for server-stored files
+  try {
+    const fileKey = fileName.startsWith('/uploads/') ? fileName.replace('/uploads/', '') : fileName;
+    const fileInfoStr = localStorage.getItem(`uploaded_file_${fileKey}`);
+    
+    if (!fileInfoStr) {
+      console.log('File not found in localStorage:', fileKey);
+      return null;
+    }
+    
+    const fileInfo = JSON.parse(fileInfoStr);
+    const blob = dataURLToBlob(fileInfo.data);
+    
+    return {
+      blob: blob,
+      name: fileInfo.originalName
+    };
+  } catch (error) {
+    console.error('Error retrieving file:', error);
+    return null;
+  }
 };
 
 export const deleteFileLocally = async (filePath: string): Promise<void> => {
   try {
     console.log('Attempting to delete file:', filePath);
     
-    // Extract filename from path
-    const fileName = filePath.replace('/uploads/', '');
+    const fileKey = filePath.replace('/uploads/', '');
     
-    const response = await fetch('/api/delete-file', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fileName: fileName
-      })
-    });
+    // Remove from localStorage
+    localStorage.removeItem(`uploaded_file_${fileKey}`);
     
-    if (!response.ok) {
-      throw new Error(`Delete failed: ${response.statusText}`);
+    // Revoke blob URL if it exists
+    const blobUrl = localStorage.getItem(`blob_url_${fileKey}`);
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      localStorage.removeItem(`blob_url_${fileKey}`);
     }
     
     console.log('File deleted successfully');
@@ -102,11 +122,26 @@ export const deleteFileLocally = async (filePath: string): Promise<void> => {
 // Helper function to get all uploaded files
 export const getAllUploadedFiles = async () => {
   try {
-    const response = await fetch('/api/list-files');
-    if (!response.ok) {
-      throw new Error(`Failed to fetch files: ${response.statusText}`);
+    const files = [];
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('uploaded_file_')) {
+        const fileInfoStr = localStorage.getItem(key);
+        if (fileInfoStr) {
+          const fileInfo = JSON.parse(fileInfoStr);
+          files.push({
+            fileName: fileInfo.fileName,
+            originalName: fileInfo.originalName,
+            uploadedAt: fileInfo.uploadedAt,
+            url: `/uploads/${fileInfo.fileName}`,
+            size: Math.round(fileInfo.data.length * 0.75) // Approximate size from base64
+          });
+        }
+      }
     }
-    return await response.json();
+    
+    return files;
   } catch (error) {
     console.error('Error retrieving file list:', error);
     return [];
