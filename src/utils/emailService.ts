@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 interface EmailData {
@@ -8,7 +9,7 @@ interface EmailData {
 
 // Helper function to check if email should be excluded from ALL email notifications
 const shouldExcludeFromAllEmails = (email: string): boolean => {
-  const excludedEmails = ["admin@conference.com"];
+  const excludedEmails = ['admin@conference.com'];
   return excludedEmails.includes(email.toLowerCase());
 };
 
@@ -16,18 +17,15 @@ export const sendEmail = async (emailData: EmailData) => {
   // Check if email should be excluded from all notifications
   if (shouldExcludeFromAllEmails(emailData.to)) {
     console.log(`Skipping email to excluded address: ${emailData.to}`);
-    return {
-      success: true,
-      message: `Email sending skipped for excluded address: ${emailData.to}`,
-    };
+    return { success: true, message: `Email sending skipped for excluded address: ${emailData.to}` };
   }
 
   try {
     console.log("Sending email to:", emailData.to);
     console.log("Subject:", emailData.subject);
-
-    // Use the new nodemailer edge function instead of Gmail API
-    const { data, error } = await supabase.functions.invoke("send-nodemailer", {
+    
+    // Use Supabase client to invoke the edge function instead of direct fetch
+    const { data, error } = await supabase.functions.invoke('send-gmail', {
       body: emailData,
     });
 
@@ -39,7 +37,7 @@ export const sendEmail = async (emailData: EmailData) => {
     console.log("Email sent successfully:", data);
     return data;
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error('Error sending email:', error);
     throw error;
   }
 };
@@ -49,10 +47,7 @@ const shouldExcludeFromStudentEmails = (email: string): boolean => {
   return shouldExcludeFromAllEmails(email);
 };
 
-export const createRegistrationConfirmationEmail = (
-  authorName: string,
-  paperTitle: string
-) => {
+export const createRegistrationConfirmationEmail = (authorName: string, paperTitle: string) => {
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -82,11 +77,7 @@ export const createRegistrationConfirmationEmail = (
   `;
 };
 
-export const createReviewerCredentialsEmail = (
-  reviewerName: string,
-  username: string,
-  password: string
-) => {
+export const createReviewerCredentialsEmail = (reviewerName: string, username: string, password: string) => {
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
       <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -121,11 +112,7 @@ export const createReviewerCredentialsEmail = (
   `;
 };
 
-export const createSubmissionConfirmationEmail = (
-  authorName: string,
-  paperTitle: string,
-  submissionId: string
-) => {
+export const createSubmissionConfirmationEmail = (authorName: string, paperTitle: string, submissionId: string) => {
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
       <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -176,18 +163,13 @@ export const createSubmissionConfirmationEmail = (
   `;
 };
 
-export const createAssignmentEmail = (
-  reviewerName: string,
-  paperTitle: string,
-  authorName: string,
-  submissionId: string
-) => {
+export const createAssignmentEmail = (reviewerName: string, paperTitle: string, authorName: string, submissionId: string) => {
   const reviewDeadline = new Date();
   reviewDeadline.setDate(reviewDeadline.getDate() + 14); // 2 weeks from now
-  const deadlineStr = reviewDeadline.toLocaleDateString("en-IN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+  const deadlineStr = reviewDeadline.toLocaleDateString('en-IN', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
   });
 
   return `
@@ -238,20 +220,10 @@ export const createAssignmentEmail = (
   `;
 };
 
-export const createStatusUpdateEmail = (
-  reviewerName: string,
-  paperTitle: string,
-  newStatus: string,
-  submissionId: string
-) => {
-  const statusColor =
-    newStatus === "selected"
-      ? "#10b981"
-      : newStatus === "rejected"
-      ? "#ef4444"
-      : "#3b82f6";
+export const createStatusUpdateEmail = (reviewerName: string, paperTitle: string, newStatus: string, submissionId: string) => {
+  const statusColor = newStatus === 'selected' ? '#10b981' : newStatus === 'rejected' ? '#ef4444' : '#3b82f6';
   const statusText = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
-
+  
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
       <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -283,38 +255,33 @@ export const createStatusUpdateEmail = (
   `;
 };
 
-export const createStudentStatusUpdateEmail = (
-  studentName: string,
-  paperTitle: string,
-  status: string,
-  submissionId: string,
-  remarks?: string
-) => {
-  const isSelected = status === "selected";
-  const isRejected = status === "rejected";
-  const statusColor = isSelected
-    ? "#10b981"
-    : isRejected
-    ? "#ef4444"
-    : "#3b82f6";
+export const createStudentStatusUpdateEmail = (studentName: string, paperTitle: string, status: string, submissionId: string, remarks?: string) => {
+  const isSelected = status === 'selected';
+  const isRejected = status === 'rejected';
+  const statusColor = isSelected ? '#10b981' : isRejected ? '#ef4444' : '#3b82f6';
   const statusText = status.charAt(0).toUpperCase() + status.slice(1);
-  const headerColor = isSelected
-    ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
-    : isRejected
-    ? "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
-    : "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)";
-
+  const headerColor = isSelected ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
+                     isRejected ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 
+                     'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+  
   return `
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
       <div style="background: ${headerColor}; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-        <h1 style="margin: 0; font-size: 28px;">Paper Status Update</h1>
-        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your submission has been reviewed</p>
+        <h1 style="margin: 0; font-size: 28px;">Paper Review Update</h1>
+        <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your submission has been ${status}</p>
       </div>
       
       <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
         <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="color: #4a5568; margin-top: 0;">Dear ${studentName},</h2>
-          <p style="color: #666; font-size: 16px;">We have an update regarding your paper submission. Please find the details below:</p>
+          <h2 style="color: #4a5568; margin-top: 0;">Hello ${studentName},</h2>
+          <p style="color: #666; font-size: 16px;">
+            ${isSelected ? 
+              'Congratulations! Your paper has been selected for the conference.' : 
+              isRejected ? 
+              'Thank you for your submission. After careful review, we regret to inform you that your paper was not selected for this conference.' :
+              'Your paper submission status has been updated.'
+            }
+          </p>
         </div>
         
         <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
@@ -335,8 +302,36 @@ export const createStudentStatusUpdateEmail = (
         </div>
         ` : ''}
         
+        <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4a5568; margin-top: 0;">
+            ${isSelected ? 'Next Steps' : isRejected ? 'Future Opportunities' : 'Information'}
+          </h3>
+          <ul style="color: #666; padding-left: 20px;">
+            ${isSelected ? `
+              <li>You will receive further instructions about conference registration</li>
+              <li>Please prepare your final presentation materials</li>
+              <li>Watch for updates about the conference schedule</li>
+              <li>Congratulations on your successful submission!</li>
+            ` : isRejected ? `
+              <li>We encourage you to consider our feedback for future submissions</li>
+              <li>Keep an eye out for future conference announcements</li>
+              <li>Continue your excellent research work</li>
+              <li>Thank you for your interest in our conference</li>
+            ` : `
+              <li>Your submission is being processed</li>
+              <li>You will receive updates as they become available</li>
+              <li>Please keep your submission ID for reference</li>
+            `}
+          </ul>
+        </div>
+        
         <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-          <p style="color: #666; margin: 0;">Thank you for your submission.</p>
+          <p style="color: #666; margin: 0;">
+            ${isSelected ? 
+              'Congratulations once again, and we look forward to your participation!' : 
+              'Thank you for your submission and continued interest in our conference.'
+            }
+          </p>
           <p style="color: #666; margin: 5px 0 0 0;">Best regards,<br>Conference Review Committee</p>
         </div>
       </div>
@@ -345,42 +340,23 @@ export const createStudentStatusUpdateEmail = (
 };
 
 // Enhanced function to send student status update emails with exclusion logic
-export const sendStudentStatusUpdateEmail = async (
-  studentEmail: string,
-  studentName: string,
-  paperTitle: string,
-  status: string,
-  submissionId: string,
-  remarks?: string
-) => {
+export const sendStudentStatusUpdateEmail = async (studentEmail: string, studentName: string, paperTitle: string, status: string, submissionId: string, remarks?: string) => {
   // Check if email should be excluded from student notifications
   if (shouldExcludeFromStudentEmails(studentEmail)) {
     console.log(`Skipping student email to excluded address: ${studentEmail}`);
-    return {
-      success: true,
-      message: `Email sending skipped for excluded address: ${studentEmail}`,
-    };
+    return { success: true, message: `Email sending skipped for excluded address: ${studentEmail}` };
   }
 
   try {
-    const emailHtml = createStudentStatusUpdateEmail(
-      studentName,
-      paperTitle,
-      status,
-      submissionId,
-      remarks
-    );
-
+    const emailHtml = createStudentStatusUpdateEmail(studentName, paperTitle, status, submissionId, remarks);
+    
     await sendEmail({
       to: studentEmail,
       subject: `Paper Review Update: ${submissionId} - ${paperTitle}`,
-      html: emailHtml,
+      html: emailHtml
     });
 
-    return {
-      success: true,
-      message: `Email sent successfully to ${studentEmail}`,
-    };
+    return { success: true, message: `Email sent successfully to ${studentEmail}` };
   } catch (error: any) {
     console.error("Failed to send student status update email:", error);
     throw error;

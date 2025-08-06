@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, X } from "lucide-react";
-import { getFile } from "@/utils/fileUpload";
 
 interface DocumentViewerProps {
   isOpen: boolean;
@@ -18,58 +17,29 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   documentUrl,
   documentName
 }) => {
-  const [error, setError] = useState<string>("");
-  const [previewUrl, setPreviewUrl] = useState<string>("");
-
-  useEffect(() => {
-    if (isOpen && documentUrl) {
-      // Check if this is a local file stored in localStorage
-      if (documentUrl.startsWith('/uploads/')) {
-        const localFile = getFile(documentUrl);
-        if (localFile) {
-          const blobUrl = URL.createObjectURL(localFile.blob);
-          setPreviewUrl(blobUrl);
-          console.log('Created blob URL for preview:', blobUrl);
-        } else {
-          // Try to access the file directly from the server
-          setPreviewUrl(documentUrl);
-        }
-      } else {
-        setPreviewUrl(documentUrl);
-      }
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(documentUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = documentName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // Fallback to direct download
+      const link = document.createElement('a');
+      link.href = documentUrl;
+      link.download = documentName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
-
-    // Cleanup blob URL when component unmounts or dialog closes
-    return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
-  }, [isOpen, documentUrl]);
-
-  const handleDownload = () => {
-    if (documentUrl.startsWith('/uploads/')) {
-      const localFile = getFile(documentUrl);
-      if (localFile) {
-        const url = URL.createObjectURL(localFile.blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = documentName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        return;
-      }
-    }
-    
-    // Fallback for regular URLs or server files
-    const link = document.createElement('a');
-    link.href = previewUrl || documentUrl;
-    link.download = documentName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const getFileExtension = (filename: string) => {
@@ -77,29 +47,9 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   };
 
   const renderDocumentPreview = () => {
-    if (error) {
-      return (
-        <div className="flex flex-col items-center justify-center h-[800px] text-red-500 space-y-4">
-          <FileText className="h-16 w-16 mb-4" />
-          <p className="text-lg">Error loading file</p>
-          <p className="text-sm">{error}</p>
-        </div>
-      );
-    }
-
-    if (!previewUrl && !documentUrl) {
-      return (
-        <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
-          <FileText className="h-16 w-16 mb-4" />
-          <p className="text-lg">No document to display</p>
-        </div>
-      );
-    }
-
     const extension = getFileExtension(documentName);
-    const urlToUse = previewUrl || documentUrl;
     
-    console.log('Document URL:', urlToUse);
+    console.log('Document URL:', documentUrl);
     console.log('Document Name:', documentName);
     console.log('File Extension:', extension);
     
@@ -107,11 +57,11 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="w-full h-[800px]">
           <iframe
-            src={`${urlToUse}#view=FitH`}
+            src={`${documentUrl}#view=FitH`}
             className="w-full h-full border rounded"
             title={documentName}
-            onError={() => {
-              setError('Failed to load PDF');
+            onError={(e) => {
+              console.error('PDF iframe error:', e);
             }}
           />
         </div>
@@ -120,24 +70,28 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return (
         <div className="flex justify-center items-center w-full h-[800px]">
           <img
-            src={urlToUse}
+            src={documentUrl}
             alt={documentName}
             className="max-w-full max-h-full object-contain"
-            onError={() => {
-              setError('Failed to load image');
+            onError={(e) => {
+              console.error('Image load error:', e);
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
             }}
           />
         </div>
       );
     } else if (['doc', 'docx'].includes(extension)) {
       return (
-        <div className="flex flex-col items-center justify-center h-[800px] text-gray-500 space-y-4">
-          <FileText className="h-16 w-16 mb-4" />
-          <p className="text-lg">Preview not available for Word documents</p>
-          <p className="text-sm text-gray-400">{documentName}</p>
-          <Button onClick={handleDownload} variant="outline">
-            Download to View
-          </Button>
+        <div className="w-full h-[800px]">
+          <iframe
+            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentUrl)}`}
+            className="w-full h-full border rounded"
+            title={documentName}
+            onError={(e) => {
+              console.error('Document viewer error:', e);
+            }}
+          />
         </div>
       );
     } else {
@@ -146,8 +100,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           <FileText className="h-16 w-16 mb-4" />
           <p className="text-lg">Preview not available for this file type</p>
           <p className="text-sm text-gray-400">{documentName}</p>
-          <Button onClick={handleDownload} variant="outline">
-            Download File
+          <Button onClick={() => window.open(documentUrl, '_blank')} variant="outline">
+            Open in New Tab
           </Button>
         </div>
       );
